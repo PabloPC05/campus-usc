@@ -13,6 +13,7 @@ def _isolate_caches(tmp_path_factory: pytest.TempPathFactory, monkeypatch) -> No
     monkeypatch.setenv("MCP_USC_CACHE_DIR", str(root / "campus"))
     monkeypatch.setenv("MCP_USC_CLI_CONFIG", str(tmp_path_factory.mktemp("config") / "campus.json"))
     monkeypatch.setenv("MCP_USC_NO_BACKGROUND", "1")
+    monkeypatch.setenv("CAMPUS_NO_LOGIN", "1")  # tests never open a login browser
     monkeypatch.delenv("USC_LOCATION_CACHE", raising=False)
 
 

@@ -20,9 +20,14 @@ Primera versión, separada de mcp-usc en su propio repositorio.
   `--marcar-leida` la marca como leída en el Campus.
 - El texto que llega del Campus se limpia de caracteres de control antes de guardarlo (nada puede
   mover el cursor ni cambiar el título de la terminal); la caché pasa al formato 2.
-- `login`: ventana de navegador para Microsoft + MFA que se cierra sola, o `--pegar` para entrar
-  con tu propio navegador y pegar la cookie (se valida antes de guardarla). Saluda con tu nombre.
-- Instalable sin git desde GitHub; el comando también se llama `campus-usc`.
+- Entrar sin pensar en ello: si no hay sesión o caducó, `campus` la renueva solo y sin ventana
+  cuando la ventana de entrar recuerda tu cuenta de Microsoft, y si hace falta abre la ventana
+  ahí mismo y sigue con lo que pediste. `campus login` hace lo mismo; `--pegar` entra con tu
+  propio navegador. El navegador del login viene incluido y se descarga solo si falta.
+- `entregas`: las próximas tareas por entregar, por fecha, cada una con su `campus entregar`;
+  las atrasadas que aún admiten entrega, aparte (`-a`).
+- Instalable sin git desde GitHub en dos pasos; el comando también se llama `campus-usc`.
+- README con medidas de velocidad frente a un asistente con MCP y la web del Campus.
 - Instantánea: cada pantalla se pinta en ~30 ms desde una caché local privada (0600, sin
   credenciales), con refresco en segundo plano de lo que está viejo, una sola sesión para todas las
   consultas de una pantalla y los bloques lentos del Taboleiro diferidos para no bloquearlo.

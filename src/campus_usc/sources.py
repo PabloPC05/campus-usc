@@ -210,16 +210,29 @@ def fetch_now(keys: list[str], *, quiet: bool = False) -> dict[str, Result]:
 
     import asyncio
 
-    slow = any(source(key).slow and store.read(key) is None for key in keys)
-    labels = ", ".join(dict.fromkeys(source(key).label for key in keys))
-    spinner = None if quiet else Spinner(labels, slow=slow)
-    if spinner:
-        spinner.start()
-    try:
-        return asyncio.run(_fetch_all(keys))
-    finally:
+    def fetch(wanted: list[str]) -> dict[str, Result]:
+        slow = any(source(key).slow and store.read(key) is None for key in wanted)
+        labels = ", ".join(dict.fromkeys(source(key).label for key in wanted))
+        spinner = None if quiet else Spinner(labels, slow=slow)
         if spinner:
-            spinner.stop()
+            spinner.start()
+        try:
+            return asyncio.run(_fetch_all(wanted))
+        finally:
+            if spinner:
+                spinner.stop()
+
+    results = fetch(keys)
+    expired = [key for key, result in results.items() if result.login_needed]
+    if expired and not os.environ.get("CAMPUS_NO_LOGIN"):
+        # No session, or it expired: get in (silently if the login browser remembers
+        # you, else a window when someone is here) and ask again.
+        from . import auth
+
+        here = not quiet and sys.stdin.isatty() and sys.stderr.isatty()
+        if auth.ensure(interactive=here):
+            results.update(fetch(expired))
+    return results
 
 
 async def _fetch_all(keys: list[str]) -> dict[str, Result]:

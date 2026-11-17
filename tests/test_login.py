@@ -5,8 +5,6 @@ No browser opens and nothing reaches the Campus: the engine's calls are fakes.
 
 from __future__ import annotations
 
-import importlib.util
-
 import pytest
 
 from campus_usc import app, sources, style
@@ -41,32 +39,42 @@ def _run(capsys, *argv: str) -> tuple[int, str, str]:
     return int(exit_info.value.code or 0), captured.out, captured.err
 
 
-def test_window_login_waits_for_the_campus_and_greets(capsys, monkeypatch):
-    calls = []
+def test_login_is_silent_when_the_browser_remembers_you(capsys, monkeypatch):
+    from campus_usc import auth
+
+    windows = []
+    monkeypatch.setattr(auth, "available", lambda: True)
+    monkeypatch.setattr(auth, "silent", lambda settings=None: True)
+    monkeypatch.setattr(auth, "window", lambda *a, **k: windows.append(a))
+    monkeypatch.setattr(auth, "_settings", lambda: object())
+    code, output, error = _run(capsys, "login")
+    assert code == 0 and windows == []
+    assert "Sesión iniciada como Ana Proba" in output and "contraseña" not in error
+
+
+def test_login_opens_the_window_when_microsoft_needs_you(capsys, monkeypatch):
+    from campus_usc import auth
+
+    timeouts = []
 
     async def fake_login(settings, timeout):
-        calls.append(timeout)
+        timeouts.append(timeout)
         return {"authenticated": True}
 
-    real_find_spec = importlib.util.find_spec
-    monkeypatch.setattr(
-        importlib.util,
-        "find_spec",
-        lambda name, *rest: object() if name == "playwright" else real_find_spec(name, *rest),
-    )
+    monkeypatch.setattr(auth, "available", lambda: True)
+    monkeypatch.setattr(auth, "silent", lambda settings=None: False)
+    monkeypatch.setattr(auth, "_settings", lambda: object())
     monkeypatch.setattr("mcp_usc.campus.interactive_login", fake_login)
-    code, output, _ = _run(capsys, "login", "--minutos", "5")
-    assert code == 0 and calls == [300]
-    assert "cv.usc.es" in output and "Sesión iniciada como Ana Proba" in output
+    code, output, error = _run(capsys, "login", "--minutos", "5")
+    assert code == 0 and timeouts == [300]
+    assert "cuenta de la USC" in error and "«Sí»" in error
+    assert "Sesión iniciada como Ana Proba" in output
 
 
-def test_window_login_without_playwright_points_to_pegar(capsys, monkeypatch):
-    real_find_spec = importlib.util.find_spec
-    monkeypatch.setattr(
-        importlib.util,
-        "find_spec",
-        lambda name, *rest: None if name == "playwright" else real_find_spec(name, *rest),
-    )
+def test_login_without_the_browser_points_to_pegar(capsys, monkeypatch):
+    from campus_usc import auth
+
+    monkeypatch.setattr(auth, "available", lambda: False)
     code, _, error = _run(capsys, "login")
     assert code == 1 and "campus login --pegar" in error
 

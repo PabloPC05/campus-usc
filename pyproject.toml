@@ -25,11 +25,12 @@ classifiers = [
 ]
 # The engine (session, Moodle client, timetables, exam dates). It is not on PyPI: it comes
 # from its repository, as a zip so that installing does not need git.
-dependencies = ["mcp-usc @ https://github.com/PabloPC05/mcp-usc/archive/refs/heads/main.zip"]
+# With its login browser (Playwright) always: signing in must just work.
+dependencies = ["mcp-usc[browser-auth] @ https://github.com/PabloPC05/mcp-usc/archive/refs/heads/main.zip"]
 
 [project.optional-dependencies]
-# Assisted login (Microsoft + MFA) through the installed Chrome or Edge.
-browser-auth = ["mcp-usc[browser-auth] @ https://github.com/PabloPC05/mcp-usc/archive/refs/heads/main.zip"]
+# Kept so older install commands still work: the login browser is now always included.
+browser-auth = []
 dev = [
   "pytest>=8.4,<9",
   "ruff>=0.12,<1",

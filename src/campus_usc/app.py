@@ -24,6 +24,7 @@ VIEW_MODULES = (
     "cursos",
     "curso",
     "entregar",
+    "entregas",
     "notificaciones",
 )
 _GLOBAL_FLAGS = {"--json": "json", "-f": "fresco", "--fresco": "fresco", "--sin-color": "no_color"}
@@ -139,10 +140,6 @@ def _new_settings() -> Any:
     return Settings.from_env()
 
 
-def _ask(prompt: str) -> str:
-    return input(prompt)
-
-
 def _secret(prompt: str) -> str:
     import getpass
 
@@ -150,54 +147,17 @@ def _secret(prompt: str) -> str:
 
 
 def _login_window(args: argparse.Namespace) -> int:
-    """Microsoft + MFA in a browser window that closes itself once the Campus lets you in."""
+    """Silently if the login browser remembers you; otherwise the sign-in window."""
 
-    import asyncio
-    import importlib.util
-
-    from mcp_usc.campus import (
-        CampusError,
-        LoginBrowserUnavailable,
-        install_login_browser,
-        interactive_login,
-        login_browser_download_engine,
-    )
-
-    from .style import bold, muted
-    from .ui import out
+    from . import auth
     from .views import fail
 
-    if importlib.util.find_spec("playwright") is None:
+    if not auth.available():
         return fail(
-            "Falta el navegador del login. Reinstala con el extra browser-auth "
-            '(uv tool install --reinstall "campus-usc[browser-auth] @ …") '
+            "Falta el navegador del login: reinstala campus-usc "
             "o entra con tu navegador: campus login --pegar"
         )
-    out(
-        [
-            "  Se abre una ventana del navegador en "
-            + bold("cv.usc.es")
-            + ": entra con tu cuenta de la USC",
-            "  (Microsoft y MFA). Cuando el Campus te deje entrar, se cierra sola.",
-            muted("  Solo se guarda la cookie de sesión del Campus, en el llavero del sistema."),
-            "",
-        ]
-    )
-    settings = _new_settings()
-    try:
-        try:
-            asyncio.run(interactive_login(settings, args.minutos * 60))
-        except LoginBrowserUnavailable:
-            engine = login_browser_download_engine()
-            if not sys.stdin.isatty() or _ask(
-                f"  No hay Chrome ni Edge. ¿Descargo {engine} solo para el login? [S/n] "
-            ).strip().casefold() in {"n", "no"}:
-                return fail("Sin navegador para el login. Prueba: campus login --pegar")
-            install_login_browser()
-            asyncio.run(interactive_login(settings, args.minutos * 60))
-    except (CampusError, TimeoutError) as exc:
-        return fail(str(exc))
-    return 0
+    return 0 if auth.ensure(interactive=True, minutes=args.minutos) else 1
 
 
 def _login_paste(args: argparse.Namespace) -> int:
