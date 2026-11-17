@@ -78,7 +78,18 @@ def test_login_without_the_browser_points_to_pegar(capsys, monkeypatch):
 
     monkeypatch.setattr(auth, "available", lambda: False)
     code, _, error = _run(capsys, "login")
-    assert code == 1 and "campus login --pegar" in error
+    text = " ".join(error.split())
+    assert code == 1 and "campus login --pegar" in text and "campus-usc[navegador]" in text
+
+
+def test_your_own_browser_is_enough(monkeypatch):
+    from campus_usc import auth
+
+    monkeypatch.setattr("mcp_usc.system_browser.find_browser", lambda: ("msedge", "/x"))
+    monkeypatch.setattr(auth, "bundled_browser", lambda: False)
+    assert auth.available() is True
+    monkeypatch.setattr("mcp_usc.system_browser.find_browser", lambda: None)
+    assert auth.available() is False
 
 
 def test_paste_login_opens_your_browser_and_checks_the_cookie(capsys, monkeypatch):

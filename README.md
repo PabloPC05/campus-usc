@@ -72,8 +72,9 @@ actualizar `campus`, repite la segunda línea añadiendo `--reinstall --refresh`
 
 ## Entrar en tu cuenta
 
-No hay que hacer nada especial: la primera vez que escribes `campus`, se abre una ventana con la
-página de la USC. Entras como en la web: tu correo, tu contraseña y el aviso del móvil. Cuando
+No hay que hacer nada especial: la primera vez que escribes `campus`, se abre una ventana de tu
+navegador (Chrome, Edge, Brave o Chromium) con la página de la USC. Usa un perfil aparte, así que
+no toca tus pestañas ni tus datos, y no hay que descargar ningún navegador. Entras como en la web: tu correo, tu contraseña y el aviso del móvil. Cuando
 pregunte «¿Mantener la sesión iniciada?», pulsa «Sí». La ventana se cierra sola y ya está.
 
 Después, cuando la sesión del Campus caduca (pasa a las pocas horas sin usarla), `campus` la
@@ -90,6 +91,10 @@ olvida en este ordenador sin cerrarla en el Campus.
 En un Linux sin escritorio (un servidor o una máquina virtual por SSH) no se puede abrir la
 ventana: `campus login --pegar` te deja entrar con el navegador de otro equipo. Como esos sistemas
 no tienen llavero, la sesión se guarda en un archivo privado que solo puede leer tu usuario.
+
+Si no tienes ninguno de esos navegadores (por ejemplo, un Mac solo con Safari), entra con
+`campus login --pegar` o añade el navegador incluido, que ocupa unos 160 MB: instala
+`campus-usc[navegador]` en vez de `campus-usc`.
 
 ¿Por qué una ventana y no un enlace, como en otras apps? En Moodle eso es el inicio de sesión de
 la app móvil, y la USC lo tiene desactivado (`enablemobilewebservice = 0`). Además, la cookie del

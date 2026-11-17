@@ -61,10 +61,27 @@ def session_saved() -> bool:
         return False
 
 
-def available() -> bool:
-    """Whether the login browser (Playwright) is installed with the engine."""
+ENGINE_ZIP = "https://github.com/PabloPC05/campus-usc/archive/refs/heads/main.zip"
+NO_BROWSER = (
+    "No encuentro Chrome, Edge, Brave ni Chromium para la ventana de entrar. Puedes instalar "
+    "uno de ellos, entrar con tu navegador pegando la sesión (campus login --pegar) o añadir "
+    "el navegador incluido (unos 160 MB): "
+    f'uv tool install --reinstall "campus-usc[navegador] @ {ENGINE_ZIP}"'
+)
+
+
+def bundled_browser() -> bool:
+    """Whether the bundled login browser (Playwright, the `navegador` extra) is installed."""
 
     return importlib.util.find_spec("playwright") is not None
+
+
+def available() -> bool:
+    """Whether a login window can be opened: your Chrome/Edge/Brave, or the bundled one."""
+
+    from mcp_usc.system_browser import find_browser
+
+    return find_browser() is not None or bundled_browser()
 
 
 def _settings() -> Any:
@@ -111,6 +128,9 @@ def window(settings: Any | None = None, minutes: int = 15) -> None:
     try:
         asyncio.run(interactive_login(settings, minutes * 60))
     except LoginBrowserUnavailable:
+        if not bundled_browser():
+            raise
+        # Only with the `navegador` extra: its browser engine is fetched the first time.
         _say("  Preparando el navegador para entrar (solo la primera vez; tarda un minuto)…")
         install_login_browser()
         asyncio.run(interactive_login(settings, minutes * 60))

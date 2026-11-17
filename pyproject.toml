@@ -25,12 +25,14 @@ classifiers = [
 ]
 # The engine (session, Moodle client, timetables, exam dates). It is not on PyPI: it comes
 # from its repository, as a zip so that installing does not need git.
-# With its login browser (Playwright) always: signing in must just work.
-dependencies = ["mcp-usc[browser-auth] @ https://github.com/PabloPC05/mcp-usc/archive/refs/heads/main.zip"]
+# The login window opens in your own Chrome/Edge/Brave: no browser to download.
+dependencies = ["mcp-usc @ https://github.com/PabloPC05/mcp-usc/archive/refs/heads/main.zip"]
 
 [project.optional-dependencies]
-# Kept so older install commands still work: the login browser is now always included.
-browser-auth = []
+# A bundled login browser (Playwright, ~160 MB) for computers with no Chrome, Edge or
+# Brave, such as a Mac with only Safari. `browser-auth` is its old name.
+navegador = ["mcp-usc[browser-auth] @ https://github.com/PabloPC05/mcp-usc/archive/refs/heads/main.zip"]
+browser-auth = ["mcp-usc[browser-auth] @ https://github.com/PabloPC05/mcp-usc/archive/refs/heads/main.zip"]
 # Installable modules (campus modulos). This one lives in modulos/horarios of this repo.
 horarios = [
   "campus-usc-horarios @ https://github.com/PabloPC05/campus-usc/archive/refs/heads/main.zip#subdirectory=modulos/horarios",

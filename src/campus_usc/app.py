@@ -153,10 +153,7 @@ def _login_window(args: argparse.Namespace) -> int:
     from .views import fail
 
     if not auth.available():
-        return fail(
-            "Falta el navegador del login: reinstala campus-usc "
-            "o entra con tu navegador: campus login --pegar"
-        )
+        return fail(auth.NO_BROWSER)
     # Silent renewal needs no screen; without one, ensure() points to --pegar.
     return 0 if auth.ensure(interactive=True, minutes=args.minutos) else 1
 
