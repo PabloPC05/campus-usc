@@ -69,6 +69,20 @@ def test_without_a_screen_it_never_offers_the_window(monkeypatch):
     assert "pegando la sesión" in text
 
 
+def test_without_a_terminal_it_never_asks_nor_opens_the_login(monkeypatch, capsys):
+    import io
+
+    ran = []
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))  # curl | sh with no terminal, or CI
+    monkeypatch.setattr("builtins.input", lambda prompt: pytest.fail("asked"))
+    monkeypatch.setattr(instalar, "look", lambda: machine())
+    monkeypatch.setattr(instalar, "install", lambda plan: 0)
+    monkeypatch.setattr(instalar.subprocess, "run", lambda *a, **k: ran.append(a))
+    assert instalar.main([]) == 0
+    assert ran == []  # no `campus entrar`
+    assert "Sin terminal para preguntar" in capsys.readouterr().out
+
+
 def test_simulating_installs_nothing(monkeypatch, capsys):
     monkeypatch.setattr(instalar, "look", lambda: machine())
     monkeypatch.setattr(instalar, "install", lambda plan: pytest.fail("installed"))

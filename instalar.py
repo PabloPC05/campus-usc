@@ -300,6 +300,11 @@ def main(argv: list[str] | None = None) -> int:
     options = parser.parse_args(argv)
 
     machine = look()
+    if not options.si and not sys.stdin.isatty():
+        # Nobody to answer (a script, CI, a pipe with no terminal): never wait on a question
+        # and never open the sign-in window; the recommended parts, as with --si.
+        options.si = True
+        print(muted("  (Sin terminal para preguntar: instalo lo recomendado y no abro el login.)"))
     print("\n".join(describe(machine) + parts(machine)))
     plan = choose(machine, options)
     print("\n".join(summary(plan)))

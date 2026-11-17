@@ -30,7 +30,25 @@ def engine(monkeypatch):
     monkeypatch.setattr(auth, "available", lambda: True)
     monkeypatch.setattr(auth, "has_screen", lambda: True)  # CI runners have no display
     monkeypatch.setattr(auth, "_settings", lambda: object())
+    monkeypatch.setattr(auth, "remembers_someone", lambda settings=None: True)
     return fake
+
+
+def test_the_first_time_the_window_opens_without_waiting(engine, monkeypatch):
+    """No profile yet: nothing to renew silently, so no 20 s wait before the window."""
+
+    monkeypatch.setattr(auth, "remembers_someone", lambda settings=None: False)
+    assert auth.ensure(interactive=True) is True
+    assert engine.calls == ["window"]
+
+
+def test_a_profile_folder_means_someone_was_remembered(tmp_path):
+    class Settings:
+        browser_profile_dir = str(tmp_path / "perfil")
+
+    assert auth.remembers_someone(Settings()) is False
+    (tmp_path / "perfil" / "sistema-helium").mkdir(parents=True)
+    assert auth.remembers_someone(Settings()) is True
 
 
 def test_silent_renewal_needs_no_window(engine):

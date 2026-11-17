@@ -1,0 +1,64 @@
+# The real thing, on real Windows, Mac and Linux: the one-line install a student pastes, then
+# every browser on the machine opened like `campus entrar` (no window, no account) to check it
+# reaches the USC's Microsoft sign-in. Each push to main, and every Monday in case the USC
+# changes something.
+name: Instalador real
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
+
+jobs:
+  instalar:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Esperar a que GitHub sirva esta versión
+        shell: bash
+        run: python3 ci/esperar_publicacion.py || python ci/esperar_publicacion.py
+
+      - name: Instalar como un alumno (Windows, PowerShell)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/PabloPC05/campus-usc/main/instalar.ps1 | iex"
+
+      - name: Instalar como un alumno (Mac y Linux, Terminal)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: curl -LsSf https://raw.githubusercontent.com/PabloPC05/campus-usc/main/instalar.sh | sh
+
+      - name: campus en el PATH, como en una terminal nueva
+        shell: bash
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: campus responde (sin sesión)
+        shell: bash
+        env:
+          CAMPUS_NO_LOGIN: "1"
+        run: |
+          campus --version
+          campus ayuda --sin-color | head -6
+          campus entregas --sin-color | tee salida.txt
+          grep -q "No has entrado en el Campus" salida.txt
+
+      - name: Los navegadores del equipo llegan a la USC (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $py = Join-Path (uv tool dir) "campus-usc\Scripts\python.exe"
+          & $py ci/comprobar_navegador.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Los navegadores del equipo llegan a la USC (Mac y Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: '"$(uv tool dir)/campus-usc/bin/python" ci/comprobar_navegador.py'

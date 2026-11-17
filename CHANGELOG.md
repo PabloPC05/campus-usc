@@ -80,6 +80,13 @@ Primera versión, separada de mcp-usc en su propio repositorio.
   `campus descargar aed 3 5` usa esos números (el id sigue valiendo). Encontrado al probarlo con
   la cuenta real.
 - Helium (helium.computer) también abre la ventana de entrar en el Mac.
+- La primera vez, `campus entrar` abre la ventana al momento: ya no pasa unos 20 s intentando
+  entrar sin ventana cuando el navegador aún no recuerda a nadie.
+- El instalador, sin terminal donde preguntar (un script, una máquina de pruebas), instala lo
+  recomendado y nunca abre la ventana de entrar.
+- Comprobación real en cada publicación y cada lunes, en Windows, Mac y Linux de GitHub: el
+  comando de instalación que pega un alumno y cada navegador del equipo llegando a la página de
+  Microsoft de la USC (`ci/`).
 - Instalador con menú (`instalar.sh` en Mac y Linux, `instalar.ps1` en Windows): mira el
   ordenador, explica las tres partes (el Campus, horario y exámenes, el navegador incluido) con
   lo que ocupa y cambia cada una, recomienda lo que hace falta, instala y ofrece entrar.

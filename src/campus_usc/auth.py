@@ -115,6 +115,22 @@ def _say(line: str) -> None:
     sys.stderr.flush()
 
 
+def remembers_someone(settings: Any | None = None) -> bool:
+    """Whether the login window was ever used here: only then can it renew with no window.
+
+    The first time (or after `campus salir`) there is no profile, so trying the silent way
+    would only make the person wait some 20 s before the window opens.
+    """
+
+    from pathlib import Path
+
+    try:
+        folder = Path((settings or _settings()).browser_profile_dir)
+        return folder.is_dir() and any(folder.iterdir())
+    except (OSError, AttributeError, TypeError):
+        return False
+
+
 def _recently_failed() -> bool:
     cached = store.read(_MARK)
     if not cached or not isinstance(cached[0], dict):
@@ -167,7 +183,7 @@ def ensure(*, interactive: bool, minutes: int = 15) -> bool:
     from .sources import Spinner
 
     settings = _settings()
-    if not _recently_failed():
+    if not _recently_failed() and remembers_someone(settings):
         spinner = Spinner("Renovando la sesión del Campus") if interactive else None
         if spinner:
             spinner.start()
