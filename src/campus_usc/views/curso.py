@@ -465,6 +465,17 @@ def downloadable(item: dict[str, Any]) -> bool:
     return item.get("module_type") in {"resource", "folder"} or bool(item.get("downloadable"))
 
 
+def numbered_materials(items: list[dict[str, Any]]) -> list[tuple[int, dict[str, Any]]]:
+    """The downloadable materials in the order `campus materiales` shows them, from 1.
+
+    That number is what `campus descargar aed 3 5` takes: no Moodle ids to copy.
+    """
+
+    files = [item for item in items if downloadable(item)]
+    ordered = [item for _, _, members in sections_of(files) for item in members]
+    return list(enumerate(ordered, start=1))
+
+
 def render_materiales(
     course: dict[str, Any], results: dict[str, sources.Result], cells: int | None = None
 ) -> list[str]:
@@ -478,13 +489,14 @@ def render_materiales(
     files = [item for item in items if downloadable(item)]
     if not files:
         return lines + ["", empty("Este curso non ten ficheiros nin cartafoles descargables.")]
+    position = {id(item): n for n, item in numbered_materials(items)}
     for _, name, members in sections_of(files):
         lines += ["", section_heading(name, len(members), color, cells, ("material", "materiais"))]
         for item in members:
-            number = muted(f"{item.get('module_id'):>8}")
+            number = muted(f"{position[id(item)]:>3}")
             kind = muted(str(item.get("module_type_label") or item.get("module_type")))
             title = clean_text(item.get("name")) or "(sen nome)"
-            room = max(8, cells - 2 - 8 - 2 - 3 - 1 - width(kind) - 2)
+            room = max(8, cells - 2 - 3 - 2 - 3 - 1 - width(kind) - 2)
             left = f"  {number}  {activity_icon(item.get('module_type'))} " + link(
                 bold(truncate(title, room)), item.get("activity_url") or item.get("url")
             )
@@ -522,14 +534,14 @@ def run_materiales(args: argparse.Namespace) -> int:
         items = (results[key].data or {}).get("items") or []
         return [
             {
+                "numero": number,
                 "module_id": item.get("module_id"),
                 "module_type": item.get("module_type"),
                 "name": item.get("name"),
                 "section_name": item.get("section_name"),
                 "url": item.get("activity_url"),
             }
-            for item in items
-            if downloadable(item)
+            for number, item in numbered_materials(items)
         ]
 
     code = show(
@@ -615,8 +627,7 @@ async def _download(course: dict[str, Any], args: argparse.Namespace) -> int:
     title = course_title(course.get("full_name"))
     service = _new_service()
     try:
-        wanted = list(args.numeros or []) + list(args.solo or [])
-        plan = await service.course_download_plan(course["id"], wanted or None)
+        plan = await service.course_download_plan(course["id"], args.module_ids or None)
     except AuthenticationRequired:
         raise SessionExpired from None  # nothing downloaded yet: renew and start again
     except (CampusError, ValueError) as exc:
@@ -698,12 +709,39 @@ async def _download(course: dict[str, Any], args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def _material_ids(course: dict[str, Any], numbers: list[int]) -> list[int] | int:
+    """Numbers of `campus materiales` → Moodle ids. A Moodle id itself still works."""
+
+    key = f"contenidos/{course['id']}"
+    contents = sources.load([key])[key]
+    items = list((contents.data or {}).get("items") or []) if contents.ok else []
+    by_number = {n: int(item["module_id"]) for n, item in numbered_materials(items)}
+    known = set(by_number.values())
+    alias = course_alias(course.get("full_name")) or str(course["id"])
+    found: list[int] = []
+    for number in numbers:
+        if number in by_number:
+            found.append(by_number[number])
+        elif number in known:  # the old way: the Moodle id
+            found.append(number)
+        else:
+            return fail(
+                f"No hay material número {number}: mira la lista con campus materiales {alias}."
+            )
+    return found
+
+
 def run_descargar(args: argparse.Namespace) -> int:
     import asyncio
 
     course = resolve_course(args.asignatura)
     if course is None:
         return 1
+    wanted = list(args.numeros or []) + list(args.solo or [])
+    ids = _material_ids(course, wanted) if wanted else []
+    if isinstance(ids, int):
+        return ids
+    args.module_ids = ids
     try:
         return run_with_session(
             lambda: asyncio.run(_download(course, args)),

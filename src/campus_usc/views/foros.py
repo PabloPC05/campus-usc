@@ -335,7 +335,8 @@ def run_debate(args: argparse.Namespace, where: str = "Foros") -> int:
     def render(results: dict[str, sources.Result], args: argparse.Namespace) -> list[str]:
         cells = term_width()
         posts = list((results[key].data or {}).get("items") or [])
-        lines = [block("Debate", f"{len(posts)} mensaxes", cells), ""]
+        count = f"{len(posts)} {'mensaxe' if len(posts) == 1 else 'mensaxes'}"
+        lines = [block("Debate", count, cells), ""]
         if not posts:
             return lines + [empty("Este debate non ten mensaxes.")]
         for depth, post in thread(posts):

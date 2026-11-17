@@ -154,9 +154,11 @@ def test_materials_only_list_files_and_folders(capsys):
     code, output, _ = _run(capsys, "materiales", "redes")
     assert code == 0
     assert "Transparencias tema 1" in output and "Código de exemplo" in output
-    assert "Anuncios" not in output and "11" in output
+    assert "Anuncios" not in output
     code, output, _ = _run(capsys, "materiales", "redes", "--json")
-    assert [item["module_id"] for item in json.loads(output)] == [11, 12]
+    items = json.loads(output)
+    assert [item["module_id"] for item in items] == [11, 12]
+    assert [item["numero"] for item in items] == [1, 2]
 
 
 @dataclass
@@ -212,10 +214,16 @@ def test_download_with_yes_shows_progress_and_summary(capsys, monkeypatch, tmp_p
 def test_download_takes_material_numbers_as_plain_words(capsys, monkeypatch, tmp_path):
     service = _FakeService(tmp_path / "Redes")
     monkeypatch.setattr(curso_view, "_new_service", lambda: service)
-    code, _, _ = _run(capsys, "descargar", "redes", "3", "5", "--si")
-    assert code == 0 and service.wanted == [3, 5]
-    code, _, _ = _run(capsys, "descargar", "redes", "--solo", "4", "--si")  # old spelling
-    assert code == 0 and service.wanted == [4]
+    # the numbers of `campus materiales redes` (1, 2…), not Moodle ids
+    code, output, _ = _run(capsys, "materiales", "redes")
+    row = next(line for line in output.splitlines() if "Transparencias tema 1" in line)
+    assert row.split()[0] == "1"
+    code, _, _ = _run(capsys, "descargar", "redes", "2", "1", "--si")
+    assert code == 0 and service.wanted == [12, 11]
+    code, _, _ = _run(capsys, "descargar", "redes", "--solo", "12", "--si")  # old: the id
+    assert code == 0 and service.wanted == [12]
+    code, _, error = _run(capsys, "descargar", "redes", "7", "--si")
+    assert code == 1 and "No hay material número 7" in error
 
 
 def test_download_asks_and_respects_no(capsys, monkeypatch, tmp_path):
