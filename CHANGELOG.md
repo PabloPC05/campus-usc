@@ -53,6 +53,10 @@ Primera versión, separada de mcp-usc en su propio repositorio.
 - La nota de cada entrega: `campus entregar asr T1` enseña la corrección (nota, cuándo y quién,
   comentario y archivos de corrección), también con la tarea ya cerrada; en la página del curso,
   cada tarea corregida lleva su nota cuando ya miraste `campus notas` de esa asignatura.
+- Entregar y retirar sin saber nada de Moodle: `campus entregas` numera tus tareas pendientes y
+  `campus entregar 3 practica.pdf` entrega la 3; dentro de una asignatura, la tarea va por su
+  número o por su nombre sin comillas (`campus entregar aed practica 4 memoria.pdf`); nuevo
+  `campus retirar aed 2`; las sugerencias que imprime `campus` usan siempre esa forma corta.
 - Instantánea: cada pantalla se pinta en ~30 ms desde una caché local privada (0600, sin
   credenciales), con refresco en segundo plano de lo que está viejo, una sola sesión para todas las
   consultas de una pantalla y los bloques lentos del Taboleiro diferidos para no bloquearlo.

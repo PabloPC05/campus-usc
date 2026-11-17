@@ -137,6 +137,8 @@ def _terminal(tmp_path, monkeypatch):
         [
             {
                 "name": "Práctica de sockets",
+                "module": "assign",
+                "actionable": True,
                 "course_id": 301,
                 "url": "https://cv.usc.es/mod/assign/view.php?id=21",
                 "sort_at": (datetime.now() + timedelta(days=2)).astimezone().isoformat(),
@@ -350,3 +352,38 @@ def test_a_graded_closed_task_shows_its_grade_and_feedback(capsys, service, monk
     assert "Cualificación: 9,0 / 10,0" in text and "Cualificado por: Ana Proba" in text
     assert "Moi ben." in output and "Revisa o apartado 3." in output
     assert "correccion.pdf" in output and service.writes() == []
+
+
+def test_task_by_words_without_quotes_and_files_after(capsys, service, upload):
+    code, output, _ = _run(capsys, "entregar", "aed", "ejercicio", "10", str(upload), "--si")
+    assert code == 0 and "Ejercicio 10" in output
+    preview = next(call for call in service.calls if call[0] == "preview_replace")
+    assert preview[3] == 12
+
+
+def test_hand_in_by_the_number_of_campus_entregas(capsys, service, upload):
+    code, output, _ = _run(capsys, "entregar", "1", str(upload), "--si")
+    assert code == 0 and "Práctica de sockets" in output
+    preview = next(call for call in service.calls if call[0] == "preview_replace")
+    assert preview[3] == 21
+
+
+def test_unknown_entregas_number(capsys, service):
+    code, _, error = _run(capsys, "entregar", "9")
+    assert code == 1 and "campus entregas" in error and service.calls == []
+
+
+def test_retirar_is_its_own_simple_command(capsys, service):
+    service.files = ["proba.pdf"]
+    code, output, _ = _run(capsys, "retirar", "aed", "ejercicio", "1", "--si")
+    assert code == 0 and "Entrega retirada" in output and service.writes() == ["remove"]
+    code, _, error = _run(capsys, "retirar", "aed")
+    assert code == 1 and "Di qué tarea retirar" in error
+
+
+def test_hints_use_the_short_form(capsys, service):
+    service.files = ["proba.pdf"]
+    code, output, _ = _run(capsys, "entregar", "aed", "ejercicio", "1")
+    assert "campus entregar aed 2 ficheiro.pdf" not in output  # position of Ejercicio 1 is 1
+    assert "campus entregar aed 1 ficheiro.pdf" in output
+    assert "campus retirar aed 1" in output and "11" not in output.split("Para entregar")[1]

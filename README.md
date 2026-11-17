@@ -7,7 +7,7 @@ como en la web. Cada pantalla tarda unos 30 ms.
 
 ```sh
 campus                    # Taboleiro: hoxe, calendario, cronograma, próximos exames e cursos
-campus entregas           # tus próximas entregas, cada una con el comando para entregarla
+campus entregas           # tus próximas entregas, numeradas: «campus entregar 3 practica.pdf»
 campus pendientes         # Cronograma (-a atrasadas, -d 30 días, -c por cursos, «redes» solo esa)
 campus horario            # tu semana en rejilla (+1 la siguiente, --grupos CLE_01 CLIL_02 --guardar-grupos)
 campus hoy                # clases y entregas de hoy, con lo que tienes «agora»
@@ -18,7 +18,8 @@ campus curso ia           # la página de la asignatura: secciones, actividades 
 campus materiales ia      # sus archivos y carpetas
 campus descargar ia       # baja sus materiales con barra de progreso (pregunta antes)
 campus entregar redes 3 practica.pdf   # entrega un archivo en una tarea (pregunta antes)
-campus entregar asr T1    # cómo está una entrega y, si ya está corregida, su nota y comentario
+campus entregar asr t1    # cómo está una entrega y, si ya está corregida, su nota y comentario
+campus retirar redes 3    # retira tu entrega (pregunta antes)
 campus notificaciones     # notificacións numeradas; «campus notificaciones 3» lee una entera
 campus notas              # «Cualificacións»; «campus notas asr» con cada nota y su comentario
 campus avisos             # los anuncios del profesorado de todas tus asignaturas
@@ -118,18 +119,21 @@ por si `campus` choca con otro.
 ## Entregar
 
 ```sh
-campus entregar aed                          # las tareas de la asignatura, numeradas
-campus entregar aed 3                        # cómo está: abierta, límites y lo que ya entregaste
-campus entregar aed 3 practica.pdf           # la entrega (pregunta antes)
-campus entregar aed 3 --retirar              # la retira, como «Eliminar entrega» en la web
-campus entregar aed 3 --enviar               # «Enviar para cualificar», si la tarea lo pide
+campus entregas                       # tus tareas pendientes, numeradas
+campus entregar 3 practica.pdf        # entrega la número 3 de esa lista
+campus entregar aed                   # las tareas de una asignatura, numeradas
+campus entregar aed 2 practica.pdf    # entrega la tarea 2 de esa asignatura
+campus entregar aed practica 4 memoria.pdf codigo.zip   # o por su nombre, sin comillas
+campus entregar aed 2                 # cómo está: abierta, lo que entregaste y su nota
+campus retirar aed 2                  # la retira, como «Eliminar entrega» en la web
+campus entregar aed 2 --enviar        # «Enviar para cualificar», si la tarea lo pide
 ```
 
-Antes de subir nada abre la página de entrega una vez, como «Engadir entrega» en la web. Así
-sabe si la tarea sigue abierta, si admite archivos, cuántos y de qué tamaño, y qué tienes ya
-entregado. Lo que vas a entregar sustituye a lo anterior, y te lo dice antes de preguntar. Sube
-exactamente los bytes que confirmaste (sha256), solo desde la carpeta de los archivos que
-nombraste, y al terminar vuelve a abrir la página para comprobar qué archivos tiene Moodle. Si la
+La tarea se indica por su número en la lista o por palabras de su nombre, sin comillas: lo que
+viene después y es un archivo es lo que se entrega. Antes de subir nada, `campus` abre la página
+de entrega una vez, como «Engadir entrega» en la web. Así sabe si sigue abierta, cuántos archivos
+admite y qué tienes ya entregado. Lo nuevo sustituye a lo anterior, y te lo dice antes de
+preguntar. Al terminar vuelve a abrir la página para comprobar qué archivos tiene Moodle. Si la
 tarea pide el paso final, te avisa de que queda como borrador hasta `--enviar`.
 
 ## Qué deja huella en el Campus

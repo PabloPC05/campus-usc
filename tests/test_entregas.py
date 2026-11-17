@@ -77,15 +77,25 @@ def test_only_upcoming_assignments_in_order():
     assert [entregas.module_id(item) for item in late] == [1002]
 
 
-def test_screen_shows_each_with_its_hand_in_command(capsys):
+def test_screen_numbers_each_task_for_entregar(capsys):
     code, output, _ = _run(capsys, "entregas")
     assert code == 0
     assert "Próximas entregas" in output and "3 nos próximos 30 días" in output
     assert output.index("Práctica 3") < output.index("P3.3") < output.index("T8")
-    assert "campus entregar redes 1001" in output and "campus entregar ia 2002" in output
+    rows = {
+        name: next(line for line in output.splitlines() if name in line)
+        for name in ("Práctica 3", "P3.3")
+    }
+    assert rows["Práctica 3"].startswith("  1 ") and rows["P3.3"].startswith("  2 ")
+    assert "campus entregar <número> ficheiro.pdf" in output
     assert "aínda non aberta" in output
     assert "Cuestionario" not in output and "Práctica 9" not in output
     assert "1  atrasadas que aínda admiten entrega" in output and "Práctica 2" not in output
+
+
+def test_numbers_do_not_change_with_the_view():
+    numbers = {entregas.module_id(item): n for n, item in entregas.numbered(EVENTS, NOW)}
+    assert numbers == {1001: 1, 2002: 2, 1003: 3, 1009: 4, 1002: 5}
 
 
 def test_late_ones_with_a(capsys):
@@ -106,7 +116,7 @@ def test_json_has_the_command(capsys):
     code, output, _ = _run(capsys, "entregas", "--json")
     items = json.loads(output)
     assert code == 0 and [item["module_id"] for item in items] == [1001, 2002, 1003]
-    assert items[0]["entregar"] == "campus entregar redes 1001"
+    assert items[0]["numero"] == 1 and items[0]["entregar"] == "campus entregar 1"
 
 
 @pytest.mark.parametrize("columns", ["80", "120"])

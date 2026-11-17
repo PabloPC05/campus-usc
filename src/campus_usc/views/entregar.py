@@ -322,7 +322,11 @@ async def _withdraw(
 
 
 async def _hand_in(
-    course: dict[str, Any], task: dict[str, Any], files: list[Path], args: argparse.Namespace
+    course: dict[str, Any],
+    task: dict[str, Any],
+    files: list[Path],
+    args: argparse.Namespace,
+    ref: str = "",
 ) -> int:
     from mcp_usc.campus import AuthenticationRequired, CampusError
 
@@ -333,6 +337,7 @@ async def _hand_in(
     title = course_title(course.get("full_name"))
     name = clean_text(task.get("name"))
     alias = course_alias(course.get("full_name")) or str(course["id"])
+    ref = ref or f"{alias} {cmid}"
     root = Path(os.path.commonpath([str(path.parent) for path in files])) if files else None
     service = _new_service(root)
     user = ((store.read("perfil") or ({}, 0))[0] or {}).get("fullname")
@@ -409,7 +414,9 @@ async def _hand_in(
         return finish(await _withdraw(service, cmid, before, args, say, cells))
     if not files and not args.enviar:  # just looking
         say("")
-        say(muted(f"  Para entregar: campus entregar {alias} {cmid} ficheiro.pdf"))
+        say(muted(f"  Para entregar: campus entregar {ref} ficheiro.pdf"))
+        if before["files"]:
+            say(muted(f"  Para retirala: campus retirar {ref}"))
         return finish(0)
     if not files and not before["files"]:
         return fail("No hay nada que enviar: entrega antes algún archivo.")
@@ -511,7 +518,7 @@ async def _hand_in(
         say(
             _warn(
                 "Queda como borrador: el profesorado no la ve hasta «Enviar para cualificar». "
-                f"Cuando quieras: campus entregar {alias} {cmid} --enviar"
+                f"Cuando quieras: campus entregar {ref} --enviar"
             )
         )
     elif args.enviar:
@@ -519,12 +526,67 @@ async def _hand_in(
     return finish(0)
 
 
+# A word that names a file even when it does not exist yet (so «No encuentro el archivo»).
+_FILE_LIKE = re.compile(r"\.[A-Za-z][A-Za-z0-9]{0,7}$")
+
+
+def split_words(words: list[str]) -> tuple[str, list[str]]:
+    """«ejercicio 1 practica.pdf» → ("ejercicio 1", ["practica.pdf"]), no quotes needed."""
+
+    task: list[str] = []
+    files: list[str] = []
+    for word in words:
+        path = Path(word).expanduser()
+        if files or path.is_file() or "/" in word or _FILE_LIKE.search(word):
+            files.append(word)
+        else:
+            task.append(word)
+    return " ".join(task), files
+
+
+def _from_entregas(number: int) -> tuple[dict[str, Any], int] | None:
+    """Number N of `campus entregas` → (its course, its Moodle id)."""
+
+    from .entregas import module_id, numbered
+
+    cached = store.read("pendientes")
+    for position, item in numbered(cached[0] if cached else None):
+        if position == number:
+            known = store.read("cursos")
+            for course in (known[0] if known else None) or []:
+                if int(course["id"]) == int(item.get("course_id") or 0):
+                    cmid = module_id(item)
+                    return (course, cmid) if cmid else None
+    return None
+
+
+def _resolve(args: argparse.Namespace) -> tuple[dict[str, Any], str, list[str]] | int:
+    """(course, task words, files) from what was typed, or an exit code."""
+
+    words = list(args.resto or [])
+    target = str(args.asignatura).strip()
+    known = store.read("cursos")
+    course_ids = {int(course["id"]) for course in (known[0] if known else None) or []}
+    if target.isdigit() and int(target) not in course_ids:
+        found = _from_entregas(int(target))
+        if found is None:
+            return fail(f"No hay entrega número {target}: mira los números con `campus entregas`.")
+        course, cmid = found
+        return course, str(cmid), words
+    course = resolve_course(target)
+    if course is None:
+        return 1
+    task, files = split_words(words)
+    return course, task, files
+
+
 def run(args: argparse.Namespace) -> int:
     import asyncio
 
-    course = resolve_course(args.asignatura)
-    if course is None:
-        return 1
+    resolved = _resolve(args)
+    if isinstance(resolved, int):
+        return resolved
+    course, task_words, file_words = resolved
     key = f"contenidos/{course['id']}"
     contents = sources.load([key], force=args.fresco)[key]
     if not contents.ok:
@@ -532,7 +594,9 @@ def run(args: argparse.Namespace) -> int:
     tasks = assignments(contents.data)
     cells = term_width()
     alias = course_alias(course.get("full_name")) or str(course["id"])
-    if not args.tarea:
+    if not task_words:
+        if args.retirar:
+            return fail(f"Di qué tarea retirar: campus retirar {alias} <número o nombre>.")
         if args.json:
             print(json.dumps(tasks, ensure_ascii=False, indent=2, default=str))
             return 0
@@ -543,47 +607,59 @@ def run(args: argparse.Namespace) -> int:
         lines.append("")
         lines.extend(task_lines(tasks, cells) or [empty("Esta asignatura no tiene tareas.")])
         lines.append("")
-        lines.append(
-            muted(
-                f"  campus entregar {alias} <número> ficheiro.pdf  ·  sin ficheiro, ves cómo está"
-            )
-        )
+        lines.append(muted(f"  campus entregar {alias} <número> ficheiro.pdf"))
+        lines.append(muted(f"  campus entregar {alias} <número>  ·  cómo está e a súa nota"))
         out(lines)
         return 0
     try:
-        task = find_task(tasks, args.tarea)
+        task = find_task(tasks, task_words)
     except TaskNotFound as exc:
         fail(str(exc))
         for line in task_lines(exc.options, cells):
             sys.stderr.write(line + "\n")
         return 1
-    if args.retirar and (args.ficheiros or args.enviar):
-        return fail("--retirar va solo: sin archivos ni --enviar.")
-    files, problem = _check_files(args.ficheiros)
+    if args.retirar and (file_words or args.enviar):
+        return fail("Para retirar no hacen falta archivos: campus retirar <asignatura> <tarea>.")
+    files, problem = _check_files(file_words)
     if problem:
         return fail(problem)
+    position = next(
+        (n for n, item in enumerate(tasks, start=1) if item.get("module_id") == task["module_id"]),
+        None,
+    )
+    ref = f"{alias} {position}" if position else f"{alias} {task['module_id']}"
     try:
         return run_with_session(
-            lambda: asyncio.run(_hand_in(course, task, files, args)),
+            lambda: asyncio.run(_hand_in(course, task, files, args, ref)),
             interactive=_interactive() and not args.json,
         )
     except KeyboardInterrupt:
         fail(
             "Interrumpido. Si ya estaba subiendo, mira cómo quedó con "
-            f"`campus entregar {alias} {task.get('module_id')}` antes de repetir."
+            f"`campus entregar {ref}` antes de repetir."
         )
         return 130
 
 
+def run_retirar(args: argparse.Namespace) -> int:
+    args.retirar = True
+    args.enviar = False
+    return run(args)
+
+
 def configure(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("asignatura", help="Alias, código G, número o parte del nombre (aed, ia…)")
-    parser.add_argument("tarea", nargs="?", help="Número de la lista, id de Moodle o nombre")
-    parser.add_argument("ficheiros", nargs="*", metavar="FICHEIRO", help="Archivos a entregar")
-    parser.add_argument("--si", action="store_true", help="No preguntes antes de entregar")
     parser.add_argument(
-        "--retirar",
-        action="store_true",
-        help="Retira tu entrega de esa tarea (como «Eliminar entrega» en la web)",
+        "asignatura", help="La asignatura (aed, ia…) o el número que da `campus entregas`"
+    )
+    parser.add_argument(
+        "resto",
+        nargs="*",
+        metavar="TAREA FICHEIRO",
+        help="La tarea (su número o su nombre, sin comillas) y los archivos a entregar",
+    )
+    parser.add_argument("--si", action="store_true", help="No preguntes antes")
+    parser.add_argument(
+        "--retirar", action="store_true", help="Retira la entrega (o usa campus retirar)"
     )
     parser.add_argument(
         "--enviar",
@@ -592,14 +668,26 @@ def configure(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def configure_retirar(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("asignatura", help="La asignatura (aed, ia…) o el número de entregas")
+    parser.add_argument("resto", nargs="*", metavar="TAREA", help="La tarea: su número o nombre")
+    parser.add_argument("--si", action="store_true", help="No preguntes antes")
+
+
 COMMANDS = [
     Command(
         "entregar",
-        "Entrega archivos en una tarea (pregunta antes)",
+        "Entrega archivos en una tarea, o mira cómo está y su nota",
         run,
         configure,
         aliases=("entrega",),
-    )
+    ),
+    Command(
+        "retirar",
+        "Retira tu entrega de una tarea (pregunta antes)",
+        run_retirar,
+        configure_retirar,
+    ),
 ]
 
 __all__ = ["COMMANDS", "assignments", "find_task", "inspect"]

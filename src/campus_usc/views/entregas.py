@@ -20,7 +20,6 @@ from ..ui import (
     activity_icon,
     block,
     countdown,
-    course_alias,
     course_chip,
     empty,
     parse_moment,
@@ -36,9 +35,21 @@ def module_id(item: dict[str, Any]) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def hand_in_command(item: dict[str, Any]) -> str:
-    alias = course_alias(item.get("course_name")) or str(item.get("course_id") or "")
-    return f"campus entregar {alias} {module_id(item) or ''}".rstrip()
+def numbered(
+    data: list[dict[str, Any]] | None, now: datetime | None = None
+) -> list[tuple[int, dict[str, Any]]]:
+    """Every assignment you can still hand in, with a number that does not depend on the view.
+
+    Upcoming ones first (soonest = 1), then late ones that still take work. ``campus entregar
+    3 practica.pdf`` hands in number 3 of this list.
+    """
+
+    soon, late = upcoming(data, days=3650, now=now)
+    return list(enumerate(soon + late, start=1))
+
+
+def hand_in_command(number: int) -> str:
+    return f"campus entregar {number}"
 
 
 def upcoming(
@@ -76,7 +87,9 @@ def _when(moment: datetime, now: datetime) -> str:
     return f"{day:<6} {moment:%H:%M}"
 
 
-def entry_lines(item: dict[str, Any], cells: int, now: datetime) -> list[str]:
+def entry_lines(
+    item: dict[str, Any], cells: int, now: datetime, number: int | None = None
+) -> list[str]:
     moment = parse_moment(item.get("sort_at") or item.get("starts_at"))
     when = _when(moment, now) if moment else "sen data"
     left, tone = countdown(moment, now) if moment else ("", None)
@@ -84,17 +97,18 @@ def entry_lines(item: dict[str, Any], cells: int, now: datetime) -> list[str]:
     opens_later = not item.get("actionable") and moment is not None and moment >= now
     if opens_later:
         tag = muted("aínda non aberta")
-    prefix = f"  {paint(when, RED if moment and moment.date() <= now.date() else BLUE)}  "
+    tag_number = muted(f"{number:>3}") if number is not None else "   "
+    prefix = (
+        f"{tag_number}  {paint(when, RED if moment and moment.date() <= now.date() else BLUE)}  "
+    )
     prefix += activity_icon("assign") + " "
     room = max(8, cells - width(prefix) - width(tag) - 2)
     name = link(bold(truncate(activity_name(item), room)), item.get("url"))
     first = prefix + name
     first += " " * max(2, cells - width(first) - width(tag)) + tag
-    indent = " " * 15
-    chip = course_chip(item.get("course_id"), item.get("course_name"), 34)
-    command = hand_in_command(item)
-    second = indent + chip + "  " + muted(truncate(command, max(8, cells - 15 - width(chip) - 2)))
-    return [first, second]
+    indent = " " * 18
+    chip = course_chip(item.get("course_id"), item.get("course_name"), max(16, cells - 20))
+    return [first, indent + chip]
 
 
 def _render(results: dict[str, sources.Result], args: argparse.Namespace) -> list[str]:
@@ -102,6 +116,7 @@ def _render(results: dict[str, sources.Result], args: argparse.Namespace) -> lis
     now = datetime.now()
     result = results["pendientes"]
     soon, late = upcoming(result.data, days=args.dias, now=now)
+    numbers = {id(item): number for number, item in numbered(result.data, now)}
     if args.curso:
         try:
             wanted = find(_courses_from(result.data), args.curso)["id"]
@@ -116,13 +131,13 @@ def _render(results: dict[str, sources.Result], args: argparse.Namespace) -> lis
         lines.append("")
         lines.append(" " + paint("Atrasadas · aínda admiten entrega", RED, bold=True))
         for item in late:
-            lines.extend(entry_lines(item, cells, now))
+            lines.extend(entry_lines(item, cells, now, numbers.get(id(item))))
     lines.append("")
     if not soon:
         lines.append(empty(f"Non tes entregas nos próximos {args.dias} días."))
     shown = soon[: args.numero] if args.numero else soon
     for item in shown:
-        lines.extend(entry_lines(item, cells, now))
+        lines.extend(entry_lines(item, cells, now, numbers.get(id(item))))
     if len(shown) < len(soon):
         lines.append(muted(f"  … e {len(soon) - len(shown)} máis · sin -n para verlas todas"))
     if late and not args.atrasadas:
@@ -135,21 +150,25 @@ def _render(results: dict[str, sources.Result], args: argparse.Namespace) -> lis
         )
     if soon or (late and args.atrasadas):
         lines.append("")
-        lines.append(muted("  Para entregar una, usa el comando que lleva debajo."))
+        lines.append(muted("  Para entregar unha: campus entregar <número> ficheiro.pdf"))
     return lines
 
 
 def run(args: argparse.Namespace) -> int:
     def payload(results: dict[str, sources.Result]) -> Any:
-        soon, late = upcoming(results["pendientes"].data, days=args.dias)
+        data = results["pendientes"].data
+        soon, late = upcoming(data, days=args.dias)
+        wanted = {id(item) for item in (late + soon if args.atrasadas else soon)}
         return [
             {
                 **item,
+                "numero": number,
                 "module_id": module_id(item),
                 "atrasada": item in late,
-                "entregar": hand_in_command(item),
+                "entregar": hand_in_command(number),
             }
-            for item in (late + soon if args.atrasadas else soon)
+            for number, item in numbered(data)
+            if id(item) in wanted
         ]
 
     return show(args, ["pendientes"], _render, ["Taboleiro", "Entregas"], json_payload=payload)
@@ -167,11 +186,11 @@ def configure(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "entregas",
-        "Tus próximas entregas, con el comando para entregar cada una",
+        "Tus próximas entregas, numeradas para entregarlas",
         run,
         configure,
         aliases=("proximas", "e2"),
     )
 ]
 
-__all__ = ["COMMANDS", "hand_in_command", "module_id", "upcoming"]
+__all__ = ["COMMANDS", "hand_in_command", "module_id", "numbered", "upcoming"]
