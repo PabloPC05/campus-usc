@@ -100,13 +100,21 @@ async def check(name: str, executable: str) -> bool:
 
 
 async def main() -> int:
+    for stream in (sys.stdout, sys.stderr):  # Windows, output to the log: cp1252 otherwise
+        stream.reconfigure(encoding="utf-8", errors="replace")
     found = installed()
+    chosen = browsers.find_browser()
     print(f"Navegadores en este equipo: {', '.join(n for n, _ in found) or 'ninguno'}")
-    print(f"campus usaría: {browsers.find_browser()}")
-    if not found:
+    print(f"campus usaría: {chosen}")
+    if not found or chosen is None:
         return 1
-    results = [await check(name, path) for name, path in found]
-    return 0 if all(results) else 1
+    results = {name: await check(name, path) for name, path in found}
+    # What a student gets is the browser campus picks; the others are reported, not required
+    # (on GitHub's Linux, Edge and the snap Chromium do not start in this sandbox).
+    others = [name for name, ok in results.items() if not ok and name != chosen[0]]
+    if others:
+        print(f"Aviso: no llegan {', '.join(others)} (campus no los usaría aquí).")
+    return 0 if results.get(chosen[0]) else 1
 
 
 if __name__ == "__main__":
