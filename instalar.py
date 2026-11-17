@@ -142,7 +142,7 @@ def recommend_browser(machine: Machine) -> tuple[bool, str]:
 
 # --- the menu ---------------------------------------------------------------------------------
 
-_COLOR = sys.stdout.isatty() and not os.getenv("NO_COLOR")
+_COLOR = bool(os.getenv("FORCE_COLOR")) or (sys.stdout.isatty() and not os.getenv("NO_COLOR"))
 
 
 def _paint(text: str, code: str) -> str:
@@ -256,8 +256,11 @@ def install(plan: Plan) -> int:
     if uv is None:
         print("  No encuentro uv. Instálalo primero: https://docs.astral.sh/uv/")
         return 1
-    print(bold("  Instalando…"))
-    done = subprocess.run([uv, "tool", "install", "--reinstall", plan.target()], check=False)
+    seconds = "10–30 s" if plan.navegador else "unos 10 s"
+    print(bold("  Instalando…") + muted(f"  ({seconds})"), flush=True)
+    done = subprocess.run(
+        [uv, "tool", "install", "--reinstall", "--quiet", plan.target()], check=False
+    )
     if done.returncode != 0:
         print("  No se pudo instalar. Prueba de nuevo, o escribe el comando de arriba a mano.")
         return done.returncode
