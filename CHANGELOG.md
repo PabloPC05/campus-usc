@@ -79,6 +79,7 @@ Primera versión, separada de mcp-usc en su propio repositorio.
 - `campus materiales` numera 1, 2, 3… en vez de enseñar el id de Moodle de cada archivo, y
   `campus descargar aed 3 5` usa esos números (el id sigue valiendo). Encontrado al probarlo con
   la cuenta real.
+- Helium (helium.computer) también abre la ventana de entrar en el Mac.
 - Instalador con menú (`instalar.sh` en Mac y Linux, `instalar.ps1` en Windows): mira el
   ordenador, explica las tres partes (el Campus, horario y exámenes, el navegador incluido) con
   lo que ocupa y cambia cada una, recomienda lo que hace falta, instala y ofrece entrar.

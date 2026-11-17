@@ -87,7 +87,7 @@ añadir partes.
 ## Entrar en tu cuenta
 
 No hay que hacer nada especial: la primera vez que escribes `campus`, se abre una ventana de tu
-navegador (Chrome, Edge, Brave o Chromium) con la página de la USC. Usa un perfil aparte, así que
+navegador (Chrome, Edge, Brave, Chromium o Helium) con la página de la USC. Usa un perfil aparte, así que
 no toca tus pestañas ni tus datos, y no hay que descargar ningún navegador. Entras como en la web:
 tu correo, tu contraseña y el aviso del móvil. Cuando pregunte «¿Mantener la sesión iniciada?»,
 pulsa «Sí». La ventana se cierra sola y ya está.

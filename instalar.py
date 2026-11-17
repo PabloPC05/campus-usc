@@ -36,6 +36,7 @@ _MAC = (
     ("Edge", "/Applications/Microsoft Edge.app"),
     ("Brave", "/Applications/Brave Browser.app"),
     ("Chromium", "/Applications/Chromium.app"),
+    ("Helium", "/Applications/Helium.app"),
 )
 _WINDOWS = (
     ("Chrome", r"Google\Chrome\Application\chrome.exe"),
