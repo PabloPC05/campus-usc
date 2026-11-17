@@ -332,7 +332,7 @@ def test_screens_fit_the_terminal(capsys, service, upload, monkeypatch, columns)
 
 
 def test_expired_session_is_renewed_before_anything_changes(capsys, service, upload, monkeypatch):
-    from mcp_usc.campus import AuthenticationRequired
+    from campus_usc_core.campus import AuthenticationRequired
 
     from campus_usc import auth
 

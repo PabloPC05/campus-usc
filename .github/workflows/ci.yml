@@ -23,6 +23,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.11", "3.14"]
 
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Check out repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -34,20 +38,34 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install (with the horarios module from this checkout)
+      # The four local pieces, from this checkout (not the published zip): the motor
+      # (campus-usc-core), the MCP server (mcp-usc), the CLI (campus-usc) and the horarios module.
+      - name: Install the four packages (editable, local)
         run: |
-          uv sync --extra dev
-          uv pip install -e modulos/horarios
+          uv venv
+          uv pip install -e "./core[dev]"
+          uv pip install "mcp>=1.29,<2"
+          uv pip install --no-deps -e ./mcp -e . -e ./modulos/horarios
+          if [ -f .venv/bin/python ]; then PY="$(pwd)/.venv/bin/python"; else PY="$(pwd)/.venv/Scripts/python"; fi
+          echo "PY=$PY" >> "$GITHUB_ENV"
 
       - name: Lint
-        run: uv run --no-sync ruff check src tests modulos instalar.py && uv run --no-sync ruff format --check src tests modulos instalar.py
+        run: |
+          "$PY" -m ruff check core/src mcp/src mcp/tests src tests modulos instalar.py ci
+          "$PY" -m ruff format --check core/src mcp/src mcp/tests src tests modulos instalar.py ci
 
-      - name: Test the core
-        run: uv run --no-sync pytest tests
+      - name: Test the motor and the MCP server
+        run: cd mcp && "$PY" -m pytest
+
+      - name: Test the CLI
+        run: "$PY" -m pytest tests
 
       - name: Test the horarios module
-        run: uv run --no-sync pytest modulos/horarios/tests
+        run: "$PY" -m pytest modulos/horarios/tests
 
-      - name: Build package
+      - name: Build the packages
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
-        run: uv build
+        run: |
+          uv build core
+          uv build mcp
+          uv build .

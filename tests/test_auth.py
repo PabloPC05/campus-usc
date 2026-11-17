@@ -25,8 +25,8 @@ def engine(monkeypatch):
         fake.calls.append("window")
         return {"authenticated": True}
 
-    monkeypatch.setattr("mcp_usc.campus.renew_session_silently", renew)
-    monkeypatch.setattr("mcp_usc.campus.interactive_login", window)
+    monkeypatch.setattr("campus_usc_core.campus.renew_session_silently", renew)
+    monkeypatch.setattr("campus_usc_core.campus.interactive_login", window)
     monkeypatch.setattr(auth, "available", lambda: True)
     monkeypatch.setattr(auth, "has_screen", lambda: True)  # CI runners have no display
     monkeypatch.setattr(auth, "_settings", lambda: object())

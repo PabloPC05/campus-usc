@@ -118,7 +118,7 @@ def _limpiar(args: argparse.Namespace) -> int:
 
     removed = store.clear()
     # The engine's own disk caches (subject locations, timetable discovery) live beside it.
-    from mcp_usc.disk_cache import disk_cache_root
+    from campus_usc_core.disk_cache import disk_cache_root
 
     root = disk_cache_root()
     for folder in root.iterdir() if root.is_dir() else ():
@@ -135,7 +135,7 @@ LOGIN_URL = "https://cv.usc.es/login/index.php"
 
 
 def _new_settings() -> Any:
-    from mcp_usc.settings import Settings
+    from campus_usc_core.settings import Settings
 
     return Settings.from_env()
 
@@ -163,7 +163,7 @@ def _login_paste(args: argparse.Namespace) -> int:
     import asyncio
     import webbrowser
 
-    from mcp_usc.session_auth import SessionImportError, import_session_cookie
+    from campus_usc_core.session_auth import SessionImportError, import_session_cookie
 
     from .style import BLUE, bold, link, muted, paint
     from .ui import out
@@ -265,7 +265,7 @@ def _salir(args: argparse.Namespace) -> int:
     settings = _new_settings()
     lines: list[str] = []
     if args.solo_aqui:
-        from mcp_usc.session_auth import forget_session_cookie
+        from campus_usc_core.session_auth import forget_session_cookie
 
         try:
             forget_session_cookie()
@@ -273,7 +273,7 @@ def _salir(args: argparse.Namespace) -> int:
             return fail(f"No pude borrar la sesión de este ordenador: {exc}")
         lines.append(done("Sesión olvidada en este ordenador (en el Campus sigue abierta)."))
     else:
-        from mcp_usc.session_auth import end_campus_session
+        from campus_usc_core.session_auth import end_campus_session
 
         try:
             result = asyncio.run(end_campus_session(settings))
@@ -346,7 +346,7 @@ def _estado(args: argparse.Namespace) -> int:
 
     started = time.perf_counter()
     try:
-        from mcp_usc.service import UscService
+        from campus_usc_core.service import UscService
 
         status = asyncio.run(UscService().auth_status())
         session = (
@@ -523,11 +523,11 @@ def main(argv: list[str] | None = None) -> None:
         _help(commands)
         raise SystemExit(0)
     if argv[:1] in (["-V"], ["--version"]):
-        from mcp_usc import __version__ as engine
+        from campus_usc_core import __version__ as engine
 
         from . import __version__
 
-        print(f"campus-usc {__version__} (mcp-usc {engine})")
+        print(f"campus-usc {__version__} (motor campus-usc-core {engine})")
         raise SystemExit(0)
     parser = argparse.ArgumentParser(prog="campus", add_help=False)
     subparsers = parser.add_subparsers(dest="command")

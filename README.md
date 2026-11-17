@@ -208,18 +208,34 @@ Todas pasan por la confirmación de un solo uso de mcp-usc. El texto que llega d
 de caracteres de control antes de guardarlo, para que nadie pueda manejar tu terminal con una
 notificación.
 
+## Un repo, cuatro piezas
+
+Este repositorio es ahora el único del proyecto. Dentro hay cuatro piezas, y cada una es honesta
+con su nombre:
+
+| Carpeta | Paquete | Qué es |
+|---|---|---|
+| raíz | `campus-usc` (comando `campus`) | el **CLI**: el Campus en tu terminal, para personas |
+| `core/` | `campus-usc-core` | el **motor**: la biblioteca que habla con el Campus (Moodle) por HTTP. No es un MCP ni un CLI ni una API; es la pieza de debajo |
+| `mcp/` | `mcp-usc` | el **servidor MCP**: expone el motor como herramientas para agentes de IA |
+| `modulos/horarios/` | `campus-usc-horarios` | el módulo opcional de horario y exámenes |
+
+El CLI y el servidor MCP son dos caras del mismo motor. Antes el motor vivía mezclado con el MCP
+en un paquete llamado `mcp-usc`, lo que hacía pensar que el motor era un MCP; ya no.
+
 ## Desarrollo
 
 ```sh
-uv sync --extra dev
-uv pip install -e modulos/horarios          # el módulo, editable
-uv run --no-sync pytest tests modulos/horarios/tests
-uv run --no-sync ruff check src tests modulos
+uv venv
+uv pip install -e "./core[dev]"             # el motor + herramientas de prueba
+uv pip install "mcp>=1.29,<2"               # el SDK del servidor MCP
+uv pip install --no-deps -e ./mcp -e . -e ./modulos/horarios
+.venv/bin/python -m pytest tests            # el CLI
+(cd mcp && ../.venv/bin/python -m pytest)   # el motor y el servidor MCP
+.venv/bin/python -m pytest modulos/horarios/tests
+.venv/bin/python -m ruff check core/src mcp/src mcp/tests src tests modulos
 ```
 
-El motor se instala desde el zip de `main` de mcp-usc. Cuando cambia, `uv` avisa de que el hash
-no coincide: `uv lock --upgrade-package mcp-usc` lo pone al día (el `uv.lock` no se sube).
-
-Para probar a la vez cambios del motor, con mcp-usc clonado al lado:
-`uv pip install -e ../mcp-usc`, y luego `.venv/bin/python -m pytest`, porque `uv run` vuelve a
-instalar el de GitHub. Las pruebas usan solo datos inventados y nunca tocan la red.
+Las cuatro piezas se instalan en editable desde este mismo checkout, así que un cambio en el
+motor (`core/`) lo ven al momento el CLI y el servidor. Las pruebas usan solo datos inventados y
+nunca tocan la red.

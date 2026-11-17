@@ -67,7 +67,7 @@ def test_login_opens_the_window_when_microsoft_needs_you(capsys, monkeypatch):
     monkeypatch.setattr(auth, "has_screen", lambda: True)
     monkeypatch.setattr(auth, "silent", lambda settings=None: False)
     monkeypatch.setattr(auth, "_settings", lambda: object())
-    monkeypatch.setattr("mcp_usc.campus.interactive_login", fake_login)
+    monkeypatch.setattr("campus_usc_core.campus.interactive_login", fake_login)
     code, output, error = _run(capsys, "login", "--minutos", "5")
     assert code == 0 and timeouts == [300]
     assert "cuenta de la USC" in error and "«Sí»" in error
@@ -87,7 +87,7 @@ def test_without_a_browser_it_asks_for_the_session_right_away(capsys, monkeypatc
     monkeypatch.setattr(auth, "has_screen", lambda: True)
     monkeypatch.setattr("sys.stdin", _Terminal())
     monkeypatch.setattr(app, "_secret", lambda prompt: "abc123")
-    monkeypatch.setattr("mcp_usc.session_auth.import_session_cookie", fake_import)
+    monkeypatch.setattr("campus_usc_core.session_auth.import_session_cookie", fake_import)
     code, output, _ = _run(capsys, "entrar")
     text = " ".join(output.split())
     assert code == 0 and stored == ["abc123"]
@@ -97,10 +97,10 @@ def test_without_a_browser_it_asks_for_the_session_right_away(capsys, monkeypatc
 def test_your_own_browser_is_enough(monkeypatch):
     from campus_usc import auth
 
-    monkeypatch.setattr("mcp_usc.system_browser.find_browser", lambda: ("msedge", "/x"))
+    monkeypatch.setattr("campus_usc_core.system_browser.find_browser", lambda: ("msedge", "/x"))
     monkeypatch.setattr(auth, "bundled_browser", lambda: False)
     assert auth.available() is True
-    monkeypatch.setattr("mcp_usc.system_browser.find_browser", lambda: None)
+    monkeypatch.setattr("campus_usc_core.system_browser.find_browser", lambda: None)
     assert auth.available() is False
 
 
@@ -113,7 +113,7 @@ def test_paste_login_opens_your_browser_and_checks_the_cookie(capsys, monkeypatc
 
     monkeypatch.setattr("sys.stdin", _Terminal())
     monkeypatch.setattr(app, "_secret", lambda prompt: "  abc123def456  ")
-    monkeypatch.setattr("mcp_usc.session_auth.import_session_cookie", fake_import)
+    monkeypatch.setattr("campus_usc_core.session_auth.import_session_cookie", fake_import)
     code, output, _ = _run(capsys, "entrar", "pegar")
     assert code == 0 and stored == ["abc123def456"]
     assert "https://cv.usc.es/login/index.php" in output and "MoodleSession" in output
@@ -121,14 +121,14 @@ def test_paste_login_opens_your_browser_and_checks_the_cookie(capsys, monkeypatc
 
 
 def test_paste_login_reports_a_rejected_cookie(capsys, monkeypatch):
-    from mcp_usc.session_auth import SessionImportError
+    from campus_usc_core.session_auth import SessionImportError
 
     async def rejected(settings, cookie):
         raise SessionImportError("La cookie no está autorizada o ya ha caducado.")
 
     monkeypatch.setattr("sys.stdin", _Terminal())
     monkeypatch.setattr(app, "_secret", lambda prompt: "caducada")
-    monkeypatch.setattr("mcp_usc.session_auth.import_session_cookie", rejected)
+    monkeypatch.setattr("campus_usc_core.session_auth.import_session_cookie", rejected)
     code, output, error = _run(capsys, "login", "--pegar")
     assert code == 1 and "caducado" in error and "Sesión iniciada" not in output
 
@@ -143,7 +143,7 @@ def test_paste_login_reads_a_piped_cookie(capsys, monkeypatch):
         return {"authenticated": True}
 
     monkeypatch.setattr("sys.stdin", io.StringIO("piped-cookie\n"))
-    monkeypatch.setattr("mcp_usc.session_auth.import_session_cookie", fake_import)
+    monkeypatch.setattr("campus_usc_core.session_auth.import_session_cookie", fake_import)
     code, output, _ = _run(capsys, "login", "--pegar")
     assert code == 0 and stored == ["piped-cookie"] and "piped-cookie" not in output
     monkeypatch.setattr("sys.stdin", io.StringIO(""))
@@ -166,7 +166,7 @@ def test_without_a_screen_it_asks_for_the_session_right_away(capsys, monkeypatch
     monkeypatch.setattr(auth, "_settings", lambda: object())
     monkeypatch.setattr("sys.stdin", _Terminal())
     monkeypatch.setattr(app, "_secret", lambda prompt: "desde-otro-equipo")
-    monkeypatch.setattr("mcp_usc.session_auth.import_session_cookie", fake_import)
+    monkeypatch.setattr("campus_usc_core.session_auth.import_session_cookie", fake_import)
     code, output, _ = _run(capsys, "entrar")
     assert code == 0 and stored == ["desde-otro-equipo"] and "SSH" in output
 
@@ -221,8 +221,8 @@ def _salir_setup(tmp_path, monkeypatch, *, remote):
     monkeypatch.setattr(
         app, "_new_settings", lambda: SimpleNamespace(browser_profile_dir=profile.parent)
     )
-    monkeypatch.setattr("mcp_usc.session_auth.end_campus_session", fake_end)
-    monkeypatch.setattr("mcp_usc.session_auth.forget_session_cookie", fake_forget)
+    monkeypatch.setattr("campus_usc_core.session_auth.end_campus_session", fake_end)
+    monkeypatch.setattr("campus_usc_core.session_auth.forget_session_cookie", fake_forget)
     return profile, calls
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from mcp_usc import academic_profile
+from campus_usc_core import academic_profile
 
 
 @pytest.fixture(autouse=True)

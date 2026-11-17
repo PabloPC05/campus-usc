@@ -171,7 +171,7 @@ def detail_lines(item: dict[str, Any], number: int, cells: int) -> list[str]:
 
 
 def _new_service() -> Any:
-    from mcp_usc.service import UscService  # heavy: only when marking as read
+    from campus_usc_core.service import UscService  # heavy: only when marking as read
 
     return UscService()
 
@@ -212,7 +212,7 @@ def run_one(args: argparse.Namespace) -> int:
     item = items[number - 1]
     marked: dict[str, Any] | None = None
     if args.marcar_leida and not item.get("read"):
-        from mcp_usc.campus import AuthenticationRequired, CampusError
+        from campus_usc_core.campus import AuthenticationRequired, CampusError
 
         from ..auth import SessionExpired, run_with_session
 
