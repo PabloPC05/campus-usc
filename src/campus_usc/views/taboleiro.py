@@ -12,7 +12,7 @@ import importlib
 from datetime import date, datetime
 from typing import Any
 
-from .. import sources
+from .. import optional, sources
 from ..style import BLUE, GRAY, RED, WHITE, clip, muted, pad, paint, term_width
 from ..ui import block, empty, long_day
 from . import Command, show
@@ -111,6 +111,13 @@ def render(
     cells = term_width()
     horario_key = sources.horario_key(today)
     examenes_key = sources.examenes_key()
+    # Optional parts (usc.gal): only once you asked for them; otherwise empty results.
+    results = {
+        **{key: sources.Result(key) for key in (horario_key, examenes_key)},
+        **results,
+    }
+    with_timetable = optional.enabled("horario")
+    with_exams = optional.enabled("examenes")
     lines = _summary(results, profile, now)
 
     # Hoxe (classes + deliveries) beside the month calendar, as on the Campus dashboard.
@@ -119,9 +126,12 @@ def render(
     today_lines: list[str] = []
     if horario is not None:
         today_lines = horario.compact_today(
-            results[horario_key], results["pendientes"], cells - _CALENDAR_CELLS - 3, now=now
+            results[horario_key] if with_timetable else None,
+            results["pendientes"],
+            cells - _CALENDAR_CELLS - 3,
+            now=now,
         )
-        if not results[horario_key].ok:
+        if with_timetable and not results[horario_key].ok:
             today_lines.append(_pending(results[horario_key]))
     grid: list[str] = []
     if calendario is not None and cells >= 80:
@@ -159,7 +169,7 @@ def render(
                 "  " + paint(f"{hidden} atrasadas", RED) + muted("  ·  campus pendientes -a")
             )
 
-    examenes = _view("examenes")
+    examenes = _view("examenes") if with_exams else None
     if examenes is not None:
         lines.append(block("Próximos exames", "", cells))
         lines.extend(examenes.compact_exams(results[examenes_key], cells, limit=3, now=now))
@@ -172,20 +182,14 @@ def render(
         lines.extend(cursos.compact_courses(results["cursos"], results["pendientes"], cells))
 
     lines.append("")
-    lines.append(
-        muted("  campus ")
-        + paint("pendientes", BLUE)
-        + muted(" · ")
-        + paint("horario", BLUE)
-        + muted(" · ")
-        + paint("examenes", BLUE)
-        + muted(" · ")
-        + paint("cursos", BLUE)
-        + muted(" · ")
-        + paint("curso ia", BLUE)
-        + muted(" · ")
-        + paint("ayuda", BLUE)
-    )
+    shortcuts = ["entregas", "notas", "avisos", "mensajes", "cursos", "ayuda"]
+    lines.append(muted("  campus ") + muted(" · ").join(paint(name, BLUE) for name in shortcuts))
+    missing = [name for name in optional.FEATURES if not optional.enabled(name)]
+    if missing:
+        lines.append(
+            muted("  Opcional, de usc.gal: ")
+            + muted(" · ").join(paint(f"campus {name}", BLUE) for name in missing)
+        )
     return [line for line in lines if line is not None]
 
 
@@ -214,13 +218,11 @@ def _exam_days(data: dict[str, Any] | None) -> dict[date, int]:
 
 def run(args: argparse.Namespace) -> int:
     today = date.today()
-    keys = [
-        "pendientes",
-        "cursos",
-        "notificaciones",
-        sources.horario_key(today),
-        sources.examenes_key(),
-    ]
+    keys = ["pendientes", "cursos", "notificaciones"]
+    if optional.enabled("horario"):
+        keys.append(sources.horario_key(today))
+    if optional.enabled("examenes"):
+        keys.append(sources.examenes_key())
     profile: dict[str, Any] = {}
 
     def draw(results: dict[str, sources.Result], parsed: argparse.Namespace) -> list[str]:
@@ -242,7 +244,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "inicio",
-        "Taboleiro: hoxe, cronograma, exames e cursos",
+        "Taboleiro: hoxe, calendario, cronograma e cursos",
         run,
         configure,
         aliases=("taboleiro", "t"),

@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from .. import sources
+from .. import optional, sources
 from ..courses import CourseNotFound, find
 from ..style import (
     AMBER,
@@ -39,6 +40,7 @@ from ..ui import (
     course_title,
     empty,
     long_day,
+    out,
 )
 from . import Command, fail, show
 
@@ -458,6 +460,20 @@ def _pick(data: dict[str, Any] | None, query: str | None) -> tuple[str | None, s
 
 
 def run(args: argparse.Namespace) -> int:
+    if getattr(args, "ocultar", False):
+        optional.disable("examenes")
+        out(
+            "  Os exames xa non saen no Taboleiro nin en campus actualizar. Volver: campus examenes"
+        )
+        return 0
+    if optional.enable("examenes"):
+        sys.stderr.write(
+            muted(
+                "  Exames activados: a partir de agora tamén saen no Taboleiro "
+                "(campus examenes --ocultar para quitalos)."
+            )
+            + "\n"
+        )
     year = _year_key(args.curso_academico)
     if year is None:
         return fail("Curso académico no válido: usa 2026/2027 (o solo 2026).")
@@ -523,6 +539,9 @@ def configure(parser: argparse.ArgumentParser) -> None:
         "--curso-academico",
         metavar="AAAA/AAAA",
         help="Curso académico (por defecto el actual, p. ej. 2026/2027)",
+    )
+    parser.add_argument(
+        "--ocultar", action="store_true", help="Quita los exámenes del Taboleiro y de actualizar"
     )
 
 

@@ -15,21 +15,21 @@ from typing import Any
 
 from .views import Command
 
-VIEW_MODULES = (
+VIEW_MODULES = (  # the order of `campus ayuda`: what a student uses most comes first
     "taboleiro",
-    "cronograma",
-    "horario",
-    "examenes",
-    "calendario",
-    "cursos",
-    "curso",
-    "entregar",
     "entregas",
+    "entregar",
+    "cronograma",
     "notas",
     "foros",
     "mensajes",
     "cuestionarios",
     "notificaciones",
+    "cursos",
+    "curso",
+    "calendario",
+    "horario",
+    "examenes",
 )
 _GLOBAL_FLAGS = {"--json": "json", "-f": "fresco", "--fresco": "fresco", "--sin-color": "no_color"}
 
@@ -71,15 +71,14 @@ def _sync(args: argparse.Namespace) -> int:
 
     started = time.perf_counter()
     today = date.today()
-    keys = [
-        "perfil",
-        "cursos",
-        "pendientes",
-        "notificaciones",
-        sources.horario_key(today),
-        sources.horario_key(today + timedelta(days=7)),
-        sources.examenes_key(),
-    ]
+    keys = ["perfil", "cursos", "pendientes", "notificaciones"]
+    # The optional parts (usc.gal) only once you asked for them: see optional.py.
+    from . import optional
+
+    if optional.enabled("horario"):
+        keys += [sources.horario_key(today), sources.horario_key(today + timedelta(days=7))]
+    if optional.enabled("examenes"):
+        keys.append(sources.examenes_key())
     from . import store
     from .courses import current
     from .ui import course_title
@@ -397,13 +396,22 @@ def _help(commands: list[Command]) -> None:
         "  " + bold("campus") + muted(" [orden] [opciones]   ·   sin orden abre el Taboleiro")
     )
     lines.append("")
-    for command in commands:
+    optional_names = {"horario", "hoy", "mañana", "examenes"}
+
+    def row(command: Command) -> str:
         name = f"  {paint(command.name.ljust(16), BLUE, bold=True)}"
         aliases = muted(f"  ({', '.join(command.aliases)})") if command.aliases else ""
         line = name + command.help + aliases
         if width(line) > cells:  # narrow terminal: drop the aliases, then shorten the help
             line = name + truncate(command.help, cells - width(name))
-        lines.append(line)
+        return line
+
+    lines += [row(command) for command in commands if command.name not in optional_names]
+    lines += [
+        "",
+        muted("  Opcional · horario e exames, de usc.gal (a primeira vez tarda un pouco)"),
+    ]
+    lines += [row(command) for command in commands if command.name in optional_names]
     lines.append("")
     lines.append(
         muted("  Opciones comunes: --json  ·  -f/--fresco (ignora la caché)  ·  --sin-color")

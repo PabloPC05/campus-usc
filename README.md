@@ -6,13 +6,10 @@ Cada asignatura sale en el color que Moodle da a su tarjeta y las etiquetas est�
 como en la web. Cada pantalla tarda unos 30 ms.
 
 ```sh
-campus                    # Taboleiro: hoxe, calendario, cronograma, próximos exames e cursos
+campus                    # Taboleiro: hoxe, calendario, cronograma e cursos
 campus entregas           # tus próximas entregas, numeradas: «campus entregar 3 practica.pdf»
 campus pendientes         # Cronograma (-a atrasadas, -d 30 días, -c por cursos, «redes» solo esa)
-campus horario            # tu semana en rejilla (+1 la siguiente, --grupos CLE_01 CLIL_02 --guardar-grupos)
-campus hoy                # clases y entregas de hoy, con lo que tienes «agora»
-campus examenes           # fechas oficiales, con cuenta atrás
-campus calendario         # el mes, con entregas y exámenes marcados
+campus calendario         # el mes, con tus entregas marcadas
 campus cursos             # «Os meus cursos» en tarjetas, con su alias para los demás comandos
 campus curso ia           # la página de la asignatura: secciones, actividades y lo pendiente
 campus materiales ia      # sus archivos y carpetas
@@ -33,6 +30,22 @@ campus estado             # sesión y frescura de la caché · campus ayuda para
 
 Las asignaturas se indican por alias, código, número o nombre (`ia`, `soi`, `asr`, `redes`,
 `G4012224`). Todo acepta `--json`, `-f` para ignorar la caché y `--sin-color`.
+
+### Opcional: horario y exámenes
+
+El horario de clases y las fechas oficiales de examen no son del Campus: son páginas públicas de
+usc.gal, y la primera vez hay que localizar tus asignaturas en los planes de estudio, lo que tarda
+uno o dos minutos. Por eso no se cargan solos: el Taboleiro y `campus actualizar` no los tocan
+hasta que los pides una vez.
+
+```sh
+campus horario            # tu semana en rejilla (+1 la siguiente, --grupos CLE_01 CLIL_02 --guardar-grupos)
+campus hoy                # clases y entregas de hoy, con lo que tienes «agora»
+campus examenes           # fechas oficiales, con cuenta atrás
+```
+
+Desde la primera vez que usas `campus horario` (o `campus examenes`), sale también en el
+Taboleiro y se pone al día con `campus actualizar`. `campus horario --ocultar` lo quita otra vez.
 
 ## Instalación
 

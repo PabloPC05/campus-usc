@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from .. import sources
+from .. import optional, sources
 from ..style import (
     BLUE,
     GRAY,
@@ -401,10 +401,11 @@ def run(args: argparse.Namespace) -> int:
         return fail(
             f"Mes no válido: «{args.mes}». Usa 12, 2026-12, +1, -1 o un nombre (xan, dic…)."
         )
-    keys = ["pendientes", sources.examenes_key(sources.academic_year(today))]
+    exams_key = sources.examenes_key(sources.academic_year(today))
+    keys = ["pendientes", exams_key] if optional.enabled("examenes") else ["pendientes"]
 
     def render(results: dict[str, sources.Result], _args: argparse.Namespace) -> list[str]:
-        pending, exams = results["pendientes"], results[keys[1]]
+        pending, exams = results["pendientes"], results.get(exams_key, sources.Result(exams_key))
         return render_month(
             year,
             month,
@@ -417,7 +418,7 @@ def run(args: argparse.Namespace) -> int:
         )
 
     def payload(results: dict[str, sources.Result]) -> Any:
-        pending, exams = results["pendientes"], results[keys[1]]
+        pending, exams = results["pendientes"], results.get(exams_key, sources.Result(exams_key))
         in_month = [
             item
             for item in pending.data or []
@@ -452,7 +453,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "calendario",
-        "Calendario: mes con entregas y exámenes",
+        "Calendario del mes con tus entregas",
         run,
         configure,
         aliases=("cal",),

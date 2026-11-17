@@ -14,12 +14,13 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 import zlib
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from .. import config, sources, store
+from .. import config, optional, sources, store
 from ..style import (
     GRAY,
     GREEN,
@@ -51,6 +52,7 @@ from ..ui import (
     empty,
     link,
     long_day,
+    out,
     parse_moment,
 )
 from . import Command, fail, show
@@ -706,6 +708,21 @@ def _week_arg(args: argparse.Namespace, today: date) -> date:
 
 
 def run_week(args: argparse.Namespace) -> int:
+    if getattr(args, "ocultar", False):
+        optional.disable("horario")
+        out(
+            "  O horario xa non sae no Taboleiro nin en campus actualizar. "
+            "Para volver: campus horario"
+        )
+        return 0
+    if optional.enable("horario"):
+        sys.stderr.write(
+            muted(
+                "  Horario activado: a partir de agora tamén sae no Taboleiro "
+                "(campus horario --ocultar para quitalo)."
+            )
+            + "\n"
+        )
     today = _now().date()
     try:
         monday = _week_arg(args, today)
@@ -744,6 +761,9 @@ def configure_week(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("semana", nargs="?", help="+1, -1, 2026-11-23 o 23/11 (por defecto, esta)")
     _group_options(parser)
     parser.add_argument("--lista", action="store_true", help="Fuerza la vista de lista")
+    parser.add_argument(
+        "--ocultar", action="store_true", help="Quita el horario del Taboleiro y de actualizar"
+    )
 
 
 def _group_options(parser: argparse.ArgumentParser) -> None:
@@ -892,7 +912,9 @@ def _render_day(
         lines += render_agenda(entries, cells, now=now, day=day)
     else:
         lines += ["", empty(_nothing(label, horario.ok, table))]
-    if not horario.ok:
+    if not optional.enabled("horario"):
+        lines += ["", muted("  As clases son opcionais (veñen de usc.gal): campus horario")]
+    elif not horario.ok:
         lines += ["", muted("  Sin horario en caché: campus actualizar")]
     notes = _notes(table, groups)
     if notes:
@@ -913,7 +935,8 @@ def _run_day(args: argparse.Namespace, offset: int) -> int:
     key = sources.horario_key(day)
 
     def payload(results: dict[str, sources.Result]) -> dict[str, Any]:
-        entries, _ = day_entries(results[key].data, results["pendientes"].data, day, groups)
+        timetable = results[key].data if key in results else None
+        entries, _ = day_entries(timetable, results["pendientes"].data, day, groups)
         return {
             "date": day.isoformat(),
             "groups": groups,
@@ -921,10 +944,15 @@ def _run_day(args: argparse.Namespace, offset: int) -> int:
             "deliveries": [e.item for e in entries if e.item is not None],
         }
 
+    with_timetable = optional.enabled("horario")
+
+    def draw(results: dict[str, sources.Result], parsed: argparse.Namespace) -> list[str]:
+        return _render_day({key: sources.Result(key), **results}, parsed, day, groups)
+
     return show(
         args,
-        [key, "pendientes"],
-        lambda results, parsed: _render_day(results, parsed, day, groups),
+        [key, "pendientes"] if with_timetable else ["pendientes"],
+        draw,
         ["Taboleiro", "Horario", "Hoxe" if offset == 0 else "Mañá"],
         json_payload=payload,
     )

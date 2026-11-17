@@ -10,7 +10,7 @@ from datetime import date, datetime
 
 import pytest
 
-from campus_usc import app, config, sources, store
+from campus_usc import app, config, optional, sources, store
 from campus_usc.style import caps, width
 from campus_usc.views import horario
 
@@ -91,6 +91,7 @@ def env(tmp_path, monkeypatch):
     store.write("perfil", {"fullname": "Ana Prueba"})
     store.write("pendientes", [DELIVERY])
     store.write(WEEK_KEY, timetable(SESSIONS))
+    optional.enable("horario")  # these tests are about the (optional) timetable
     yield
     caps.reset()
 

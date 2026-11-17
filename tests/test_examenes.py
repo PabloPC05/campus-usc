@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from campus_usc import app, sources, store, style
+from campus_usc import app, optional, sources, store, style
 from campus_usc.views import calendario, examenes
 
 NOW = datetime(2026, 11, 17, 9, 0)
@@ -109,6 +109,7 @@ def env(monkeypatch, tmp_path):
     store.write("perfil", {"fullname": "Ana Proba"})
     store.write(sources.examenes_key("2026/2027"), schedule())
     store.write("pendientes", pending())
+    optional.enable("examenes")  # these tests are about the (optional) exam dates
     yield tmp_path
     style.caps.reset()
 
