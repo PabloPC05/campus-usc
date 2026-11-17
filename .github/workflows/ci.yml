@@ -55,13 +55,16 @@ jobs:
           "$PY" -m ruff format --check core/src mcp/src mcp/tests src tests modulos instalar.py ci
 
       - name: Test the motor and the MCP server
-        run: cd mcp && "$PY" -m pytest
+        run: |
+          cd mcp && "$PY" -m pytest
 
       - name: Test the CLI
-        run: "$PY" -m pytest tests
+        run: |
+          "$PY" -m pytest tests
 
       - name: Test the horarios module
-        run: "$PY" -m pytest modulos/horarios/tests
+        run: |
+          "$PY" -m pytest modulos/horarios/tests
 
       - name: Build the packages
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
