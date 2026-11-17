@@ -225,6 +225,20 @@ def test_timeline_json_is_the_filtered_list(capsys):
     assert [item["course_id"] for item in json.loads(output)] == [101]
 
 
+def test_redirected_output_on_windows_is_utf8(monkeypatch):
+    """cp1252 (Windows, output to a file or a pipe) has no box drawing: it used to crash."""
+
+    import io
+
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="cp1252")
+    monkeypatch.setattr("sys.stdout", stream)
+    app._utf8_output()
+    print("╭─ ✎ Práctica 3 ─╮")
+    stream.flush()
+    assert raw.getvalue().decode("utf-8").strip() == "╭─ ✎ Práctica 3 ─╮"
+
+
 def test_help_lists_commands(capsys):
     code, output = _run(capsys, "ayuda")
     assert code == 0

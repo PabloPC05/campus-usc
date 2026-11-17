@@ -491,8 +491,24 @@ def _help(commands: list[Command]) -> None:
 # --- entry point ----------------------------------------------------------------------
 
 
+def _utf8_output() -> None:
+    """Redirected output in UTF-8, always.
+
+    Windows writes to files and pipes in its old code page (cp1252), which has neither the
+    box drawing nor the icons: `campus entregas > tareas.txt`, or an agent reading `campus`,
+    crashed with UnicodeEncodeError. A real console is unaffected (Python writes it as text).
+    """
+
+    for stream in (sys.stdout, sys.stderr):
+        encoding = (getattr(stream, "encoding", None) or "").lower().replace("-", "")
+        if encoding != "utf8" and hasattr(stream, "reconfigure"):
+            with contextlib.suppress(ValueError, OSError):
+                stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> None:
     argv = list(sys.argv[1:] if argv is None else argv)
+    _utf8_output()
     if argv[:1] == ["--refrescar"]:
         from .sources import refresh_main  # it loads the installed modules itself
 

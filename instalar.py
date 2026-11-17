@@ -16,6 +16,7 @@ puede ejecutar a mano: `uv run instalar.py`. Solo usa la biblioteca estándar.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import platform
 import shutil
@@ -258,6 +259,21 @@ def choose(machine: Machine, options: argparse.Namespace) -> Plan:
     return Plan(horarios=horarios, navegador=wants_browser)
 
 
+def _utf8_output() -> None:
+    """Redirected output in UTF-8, always.
+
+    Windows writes to files and pipes in its old code page (cp1252), which has neither the
+    box drawing nor the icons: the installer run by a script or in CI
+    printed «s�» with UnicodeEncodeError. A real console is unaffected (Python writes it as text).
+    """
+
+    for stream in (sys.stdout, sys.stderr):
+        encoding = (getattr(stream, "encoding", None) or "").lower().replace("-", "")
+        if encoding != "utf8" and hasattr(stream, "reconfigure"):
+            with contextlib.suppress(ValueError, OSError):
+                stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 # --- installing --------------------------------------------------------------------------------
 
 
@@ -298,6 +314,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sin-navegador", dest="navegador", action="store_false")
     parser.add_argument("--simular", action="store_true", help="Enseña el plan sin instalar")
     options = parser.parse_args(argv)
+    _utf8_output()
 
     machine = look()
     if not options.si and not sys.stdin.isatty():

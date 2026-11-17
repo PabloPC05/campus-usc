@@ -47,11 +47,14 @@ jobs:
         run: |
           campus --version
           campus ayuda --sin-color | head -6
-          campus entregas --sin-color | tee salida.txt
+          # Both streams into a file, as an agent reading campus would: on Windows that is
+          # cp1252 unless campus switches to UTF-8.
+          campus entregas --sin-color > salida.txt 2>&1 || true
+          cat salida.txt
           grep -q "No has entrado en el Campus" salida.txt
 
       - name: Los navegadores del equipo llegan a la USC (Windows)
-        if: runner.os == 'Windows'
+        if: (success() || failure()) && runner.os == 'Windows'
         shell: pwsh
         run: |
           $py = Join-Path (uv tool dir) "campus-usc\Scripts\python.exe"
@@ -59,6 +62,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Los navegadores del equipo llegan a la USC (Mac y Linux)
-        if: runner.os != 'Windows'
+        if: (success() || failure()) && runner.os != 'Windows'
         shell: bash
         run: '"$(uv tool dir)/campus-usc/bin/python" ci/comprobar_navegador.py'
