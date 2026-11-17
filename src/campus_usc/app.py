@@ -25,6 +25,10 @@ VIEW_MODULES = (
     "curso",
     "entregar",
     "entregas",
+    "notas",
+    "foros",
+    "mensajes",
+    "cuestionarios",
     "notificaciones",
 )
 _GLOBAL_FLAGS = {"--json": "json", "-f": "fresco", "--fresco": "fresco", "--sin-color": "no_color"}

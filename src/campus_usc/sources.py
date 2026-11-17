@@ -121,6 +121,47 @@ async def _perfil(service: Any, _param: str) -> Any:
     }
 
 
+async def _confirmed(method: Any, *args: Any) -> Any:
+    """Pages that leave the same trace as opening them on the web: the engine asks for a
+    one-time confirmation even to read them; running the command is that confirmation."""
+
+    preview = await method(*args, None)
+    return await method(*args, preview["confirmation_token"])
+
+
+async def _notas(service: Any, course_id: str) -> Any:
+    return await _confirmed(service.inspect_my_grades, int(course_id) if course_id else None)
+
+
+async def _foro(service: Any, course_module_id: str) -> Any:
+    return await _confirmed(service.inspect_forum_discussions, int(course_module_id), 0)
+
+
+async def _debate(service: Any, discussion_id: str) -> Any:
+    preview = await service.inspect_discussion_posts(int(discussion_id), 0, 100, None)
+    return await service.inspect_discussion_posts(
+        int(discussion_id), 0, 100, preview["confirmation_token"]
+    )
+
+
+async def _mensajes(service: Any, _param: str) -> Any:
+    received = await service.list_messages("received", "conversations", "all", 0, 50, True)
+    sent = await service.list_messages("sent", "conversations", "all", 0, 50, True)
+    items = [{**item, "sent": False} for item in received.get("items") or []]
+    items += [{**item, "sent": True} for item in sent.get("items") or []]
+    people = {int(item["user_id_to" if item["sent"] else "user_id_from"] or 0) for item in items}
+    names = await service.message_member_names(sorted(people - {0}))
+    return {"items": items, "names": {str(key): value for key, value in names.items()}}
+
+
+async def _conversa(service: Any, other_user_id: str) -> Any:
+    return await service.conversation_with(int(other_user_id), 50)
+
+
+async def _cuestionario(service: Any, course_module_id: str) -> Any:
+    return await _confirmed(service.inspect_quiz_page, int(course_module_id))
+
+
 SOURCES: dict[str, Source] = {
     "pendientes": Source("Cronograma", 10 * MINUTE, 12 * HOUR, _pendientes),
     "cursos": Source("Os meus cursos", 6 * HOUR, 30 * DAY, _cursos),
@@ -129,6 +170,12 @@ SOURCES: dict[str, Source] = {
     "contenidos": Source("Contido do curso", 30 * MINUTE, 7 * DAY, _contenidos),
     "notificaciones": Source("Notificacións", 5 * MINUTE, 6 * HOUR, _notificaciones),
     "perfil": Source("Perfil", 7 * DAY, 90 * DAY, _perfil),
+    "notas": Source("Cualificacións", HOUR, 7 * DAY, _notas),
+    "foro": Source("Foro", 30 * MINUTE, 7 * DAY, _foro),
+    "debate": Source("Debate", 15 * MINUTE, 7 * DAY, _debate),
+    "mensajes": Source("Mensaxes", 5 * MINUTE, 6 * HOUR, _mensajes),
+    "conversa": Source("Conversa", 5 * MINUTE, 6 * HOUR, _conversa),
+    "cuestionario": Source("Cuestionario", 30 * MINUTE, 7 * DAY, _cuestionario),
 }
 
 

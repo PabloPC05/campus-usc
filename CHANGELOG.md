@@ -40,6 +40,16 @@ Primera versión, separada de mcp-usc en su propio repositorio.
     el comando sigue;
   - `descargar` probado de verdad (un PDF de un curso pasado) y ninguna pantalla se pasa de
     80 columnas.
+- El resto del Campus:
+  - `notas`: «Cualificacións» con la nota de cada asignatura, y el informe de una con cada
+    elemento, su intervalo y el comentario del profesor;
+  - `avisos`: los anuncios de todas tus asignaturas, el más nuevo primero y los no leídos
+    siempre a la vista; `foros` los de una asignatura y sus debates; `debate N` uno entero,
+    con hilos, párrafos y anexos;
+  - `mensajes`: conversaciones por persona sin marcarlas como leídas, cada una entera, y
+    `escribir` para enviar uno (lo enseña y pregunta antes);
+  - `cuestionarios`: los de cada asignatura, y el detalle de uno con fechas, tiempo límite,
+    intentos permitidos, tus intentos y tu nota.
 - Instantánea: cada pantalla se pinta en ~30 ms desde una caché local privada (0600, sin
   credenciales), con refresco en segundo plano de lo que está viejo, una sola sesión para todas las
   consultas de una pantalla y los bloques lentos del Taboleiro diferidos para no bloquearlo.

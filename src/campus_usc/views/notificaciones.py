@@ -49,7 +49,8 @@ def relative_time(created: Any, now: float | None = None) -> str:
     if days < 30:
         return f"hai {days} {'día' if days == 1 else 'días'}"
     moment = datetime.fromtimestamp(stamp)
-    return f"{moment.day} {MONTHS[moment.month - 1][:3]}."
+    year = "" if moment.year == datetime.now().year else f" {moment.year}"
+    return f"{moment.day} {MONTHS[moment.month - 1][:3]}.{year}"
 
 
 def notification_module(component: Any) -> str:

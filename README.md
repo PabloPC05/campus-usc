@@ -19,6 +19,11 @@ campus materiales ia      # sus archivos y carpetas
 campus descargar ia       # baja sus materiales con barra de progreso (pregunta antes)
 campus entregar redes 3 practica.pdf   # entrega un archivo en una tarea (pregunta antes)
 campus notificaciones     # notificacións numeradas; «campus notificaciones 3» lee una entera
+campus notas              # «Cualificacións»; «campus notas asr» con cada nota y su comentario
+campus avisos             # los anuncios del profesorado de todas tus asignaturas
+campus foros redes        # los foros de una asignatura; «campus debate 420773» lee uno entero
+campus mensajes           # mensajes privados por persona; «campus escribir 2 "…"» responde
+campus cuestionarios ia   # sus cuestionarios; «campus cuestionarios ia 1» fechas, intentos y nota
 campus abrir redes        # abre la asignatura en el navegador
 campus estado             # sesión y frescura de la caché · campus ayuda para todo lo demás
 ```
@@ -126,16 +131,23 @@ exactamente los bytes que confirmaste (sha256), solo desde la carpeta de los arc
 nombraste, y al terminar vuelve a abrir la página para comprobar qué archivos tiene Moodle. Si la
 tarea pide el paso final, te avisa de que queda como borrador hasta `--enviar`.
 
-## Qué cambia en el Campus
+## Qué deja huella en el Campus
 
-`campus` solo lee, salvo en estos casos, y en todos pregunta antes o espera tu opción:
+Mirar casi todo no deja rastro: tareas, cursos, materiales, notificaciones, mensajes y la lista
+de cuestionarios se leen sin que Moodle registre nada. Algunas cosas la USC solo las enseña en su
+página web, y entonces `campus` hace lo mismo que harías tú en el navegador:
 
-- `entregar`, `entregar --retirar` y `entregar --enviar` cambian tu entrega. Preguntan antes, o
-  necesitan `--si` si no hay terminal.
-- `notificaciones N --marcar-leida` marca esa notificación como leída. Leerla sin la opción no
-  cambia nada.
-- `descargar` abre cada material nuevo, así que queda registrado como visto. Pregunta antes, o
-  `--si`, y no vuelve a abrir lo ya descargado.
+- `notas`, `avisos`, `foros` y el detalle de un cuestionario abren su página una vez, y Moodle
+  apunta la visita igual que cuando entras desde la web. No marcan nada como leído.
+- `debate` abre el debate, así que Moodle marca sus mensajes como leídos, como en la web.
+- `descargar` abre cada material nuevo, así que queda registrado como visto. Pregunta antes
+  (o `--si`) y no vuelve a abrir lo ya descargado.
+
+Y estos cambian cosas, siempre preguntando antes (o con `--si` si no hay terminal):
+
+- `entregar`, `entregar --retirar` y `entregar --enviar` cambian tu entrega.
+- `escribir` envía un mensaje de verdad: te lo enseña y espera a que digas que sí.
+- `notificaciones N --marcar-leida` marca esa notificación como leída.
 
 Todas pasan por la confirmación de un solo uso de mcp-usc. El texto que llega del Campus se limpia
 de caracteres de control antes de guardarlo, para que nadie pueda manejar tu terminal con una
