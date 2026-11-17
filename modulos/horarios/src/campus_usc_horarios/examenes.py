@@ -529,10 +529,10 @@ def configure(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "examenes",
-        "Exames: fechas oficiales de tus asignaturas",
+        "Las fechas oficiales de tus exámenes",
         run,
         configure,
-        aliases=("exames", "e"),
+        aliases=("exámenes", "exames", "e"),
     )
 ]
 

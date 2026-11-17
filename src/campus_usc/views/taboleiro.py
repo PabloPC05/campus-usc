@@ -225,7 +225,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "inicio",
-        "Taboleiro: hoxe, calendario, cronograma e cursos",
+        "El Taboleiro: hoy, el calendario, lo pendiente y tus cursos",
         run,
         configure,
         aliases=("taboleiro", "t"),

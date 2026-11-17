@@ -1,10 +1,11 @@
 """«Novas» and forums: what the teachers announce, and every forum's discussions.
 
-* ``campus avisos``           the latest announcements of all this year's courses;
-* ``campus avisos redes``     those of one course;
+* ``campus avisos``           the latest announcements of all this year's courses, numbered;
+* ``campus avisos 3``         announcement 3 in full (``campus avisos redes 2``: of one course);
 * ``campus foros redes``      the course's forums, numbered; ``campus foros redes 2`` lists
-                              the discussions of forum 2;
-* ``campus debate 900``       a discussion in full: every post, threaded, with its text.
+                              the discussions of forum 2, and ``campus foros redes 2 5``
+                              reads its discussion 5;
+* ``campus debate 900``       a discussion by its Moodle id (hidden: for agents and scripts).
 
 Listing reads the forum's page, like opening it on the web (Moodle logs the visit, nothing
 is marked as read). Reading a discussion is opening it: Moodle marks its posts as read,
@@ -33,7 +34,7 @@ from ..ui import (
     long_day,
     parse_moment,
 )
-from . import Command, fail, show
+from . import Command, add_max, fail, show
 from .curso import resolve_course
 
 _NEWS = re.compile(r"anuncio|nova|novas|noticia|aviso|novidade|news|announce", re.I)
@@ -62,10 +63,15 @@ def _contents(courses: list[dict[str, Any]]) -> dict[int, sources.Result]:
 
 
 def discussion_lines(
-    discussion: dict[str, Any], cells: int, course: dict[str, Any] | None = None
+    discussion: dict[str, Any],
+    cells: int,
+    course: dict[str, Any] | None = None,
+    number: int | None = None,
 ) -> list[str]:
     unread = int(discussion.get("unread") or 0)
     dot = paint("●", BLUE, bold=True) if unread else muted("○")
+    if number is not None:  # the number you type to read it
+        dot = muted(f"{number:>2}") + " " + dot
     when = str(discussion.get("last_post_at") or discussion.get("started_at") or "")
     pin = paint("📌 ", GRAY) if discussion.get("pinned") else ""
     room = max(8, cells - 6 - width(pin) - width(when) - 2)
@@ -83,15 +89,27 @@ def discussion_lines(
         parts.append(muted(f"{replies} {'resposta' if replies == 1 else 'respostas'}"))
     if unread:
         parts.append(paint(f"{unread} sen ler", BLUE))
-    parts.append(muted(f"campus debate {discussion.get('discussion_id')}"))
-    second = "    " + muted(" · ").join(parts)
+    second = ("       " if number is not None else "    ") + muted(" · ").join(parts)
     return [first, clip(second, cells)]
 
 
 # --- avisos ---------------------------------------------------------------------------------
 
 
+def alias_of(course: dict[str, Any]) -> str:
+    return course_alias(course.get("full_name")) or str(course["id"])
+
+
+def _course_and_number(words: list[str]) -> tuple[str | None, int | None]:
+    """«redes 2» → ("redes", 2); «3» → (None, 3); «redes» → ("redes", None)."""
+
+    words = list(words or [])
+    number = int(words.pop()) if words and words[-1].isdigit() else None
+    return (" ".join(words) or None), number
+
+
 def run_avisos(args: argparse.Namespace) -> int:
+    args.curso, wanted = _course_and_number(args.curso)
     if args.curso:
         course = resolve_course(args.curso)
         if course is None:
@@ -107,14 +125,27 @@ def run_avisos(args: argparse.Namespace) -> int:
         if forum:
             forums[f"foro/{forum['module_id']}"] = course
 
-    def render(results: dict[str, sources.Result], args: argparse.Namespace) -> list[str]:
-        cells = term_width()
+    def every(results: dict[str, sources.Result]) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+        """All announcements, newest first: their position is the number you type."""
+
         found: list[tuple[dict[str, Any], dict[str, Any]]] = []
         for key, course in forums.items():
             result = results[key]
             for discussion in (result.data or {}).get("discussions") or []:
                 found.append((discussion, course))
         found.sort(key=lambda pair: -int(pair[0].get("discussion_id") or 0))
+        return found
+
+    if wanted is not None and forums:
+        found = every(sources.load(list(forums), force=args.fresco))
+        if not 1 <= wanted <= len(found):
+            where = f" {alias_of(courses[0])}" if args.curso else ""
+            return fail(f"No hay aviso número {wanted}: mira la lista con campus avisos{where}.")
+        return read_discussion(args, found[wanted - 1][0], "Novas")
+
+    def render(results: dict[str, sources.Result], args: argparse.Namespace) -> list[str]:
+        cells = term_width()
+        found = every(results)
         unread = sum(int(d.get("unread") or 0) for d, _ in found)
         right = f"{unread} sen ler" if unread else "Anuncios do profesorado"
         lines = [block("Novas", right, cells), ""]
@@ -124,16 +155,23 @@ def run_avisos(args: argparse.Namespace) -> int:
             lines.append(empty("Non hai anuncios."))
         # The newest ones, plus every unread one wherever it is (they are the news).
         shown = [
-            pair
-            for position, pair in enumerate(found)
-            if position < args.numero or int(pair[0].get("unread") or 0)
+            (position, pair)
+            for position, pair in enumerate(found, start=1)
+            if position <= args.max or int(pair[0].get("unread") or 0)
         ]
-        for discussion, course in shown:
-            lines.extend(discussion_lines(discussion, cells, course if len(courses) > 1 else None))
+        for position, (discussion, course) in shown:
+            lines.extend(
+                discussion_lines(
+                    discussion, cells, course if len(courses) > 1 else None, number=position
+                )
+            )
         if len(found) > len(shown):
             lines.append(muted(f"  … e {len(found) - len(shown)} máis · -n {len(found)}"))
-        lines.append("")
-        lines.append(muted("  Ver a lista non marca nada como lido; abrir un debate, si."))
+        if found:
+            where = f" {alias_of(courses[0])}" if args.curso else ""
+            lines.append("")
+            lines.append(muted(f"  campus avisos{where} <número> para lelo enteiro"))
+            lines.append(muted("  Ver a lista non marca nada como lido; abrir un aviso, si."))
         return lines
 
     crumbs = ["Novas"] + ([course_title(courses[0].get("full_name"))] if args.curso else [])
@@ -143,8 +181,12 @@ def run_avisos(args: argparse.Namespace) -> int:
 
 
 def configure_avisos(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("curso", nargs="?", help="Solo los de esta asignatura")
-    parser.add_argument("-n", "--numero", type=int, default=15, help="Cuántos mostrar (15)")
+    parser.add_argument(
+        "curso",
+        nargs="*",
+        help="Solo los de esta asignatura, y un número para leer ese aviso (campus avisos redes 2)",
+    )
+    add_max(parser, 15, "mostrar")
 
 
 # --- foros ----------------------------------------------------------------------------------
@@ -195,6 +237,17 @@ def run_foros(args: argparse.Namespace) -> int:
     if forum is None:
         return fail(f"No encuentro el foro «{args.foro}»: mira la lista con campus foros {alias}.")
     forum_key = f"foro/{forum['module_id']}"
+    if args.debate is not None:
+        loaded = sources.load([forum_key], force=args.fresco)[forum_key]
+        if not loaded.ok:
+            return fail(loaded.error or "No pude leer el foro.")
+        discussions = (loaded.data or {}).get("discussions") or []
+        if not 1 <= args.debate <= len(discussions):
+            return fail(
+                f"No hay debate número {args.debate}: mira la lista con "
+                f"campus foros {alias} {args.foro}."
+            )
+        return read_discussion(args, discussions[args.debate - 1], "Foros")
 
     def render_forum(results: dict[str, sources.Result], args: argparse.Namespace) -> list:
         cells = term_width()
@@ -204,10 +257,12 @@ def run_foros(args: argparse.Namespace) -> int:
         discussions = data.get("discussions") or []
         if not discussions:
             lines.append(empty("Aínda non hai debates."))
-        for discussion in discussions:
-            lines.extend(discussion_lines(discussion, cells))
+        for position, discussion in enumerate(discussions, start=1):
+            lines.extend(discussion_lines(discussion, cells, number=position))
+        if discussions:
+            lines += ["", muted(f"  campus foros {alias} {args.foro} <número> para lelo enteiro")]
         if data.get("has_more"):
-            lines += ["", muted("  Hai máis debates no Campus: campus abrir " + alias)]
+            lines += [muted("  Hai máis debates no Campus: campus abrir " + alias)]
         return lines
 
     return show(args, [forum_key], render_forum, ["Os meus cursos", title, "Foros"])
@@ -216,6 +271,7 @@ def run_foros(args: argparse.Namespace) -> int:
 def configure_foros(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("curso", help="La asignatura (redes, ia…)")
     parser.add_argument("foro", nargs="?", help="Número de la lista, id o parte del nombre")
+    parser.add_argument("debate", nargs="?", type=int, help="Número del debate, para leerlo")
 
 
 # --- debate ---------------------------------------------------------------------------------
@@ -268,7 +324,12 @@ def post_lines(post: dict[str, Any], depth: int, cells: int) -> list[str]:
     return lines
 
 
-def run_debate(args: argparse.Namespace) -> int:
+def read_discussion(args: argparse.Namespace, discussion: dict[str, Any], where: str) -> int:
+    args.debate = int(discussion.get("discussion_id") or 0)
+    return run_debate(args, where)
+
+
+def run_debate(args: argparse.Namespace, where: str = "Foros") -> int:
     key = f"debate/{args.debate}"
 
     def render(results: dict[str, sources.Result], args: argparse.Namespace) -> list[str]:
@@ -282,33 +343,34 @@ def run_debate(args: argparse.Namespace) -> int:
         lines.append(muted("  Ao abrilo, Moodle marca estas mensaxes como lidas, como na web."))
         return lines
 
-    return show(args, [key], render, ["Foros", "Debate"])
+    return show(args, [key], render, [where, "Debate"])
 
 
 def configure_debate(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("debate", type=int, help="El número de debate (sale en avisos y foros)")
+    parser.add_argument("debate", type=int, help="El id de Moodle del debate")
 
 
 COMMANDS = [
     Command(
         "avisos",
-        "Novas: los anuncios del profesorado de tus asignaturas",
+        "Los anuncios del profesorado; con un número, lee uno",
         run_avisos,
         configure_avisos,
         aliases=("novas", "anuncios"),
     ),
     Command(
         "foros",
-        "Foros de una asignatura y sus debates",
+        "Los foros de una asignatura: campus foros redes",
         run_foros,
         configure_foros,
         aliases=("foro",),
     ),
     Command(
         "debate",
-        "Lee un debate entero (lo marca como leído, como la web)",
+        "Lee un debate por su id de Moodle (para agentes)",
         run_debate,
         configure_debate,
+        hidden=True,
     ),
 ]
 

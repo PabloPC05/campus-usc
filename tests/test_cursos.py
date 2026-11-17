@@ -138,7 +138,9 @@ def test_course_page_lists_sections_and_pending(capsys):
     assert "Os meus cursos › Redes" in output
     for text in ("Xeral", "Tema 1: Sockets", "Transparencias tema 1", "Práctica 3", "Pendente"):
         assert text in output
-    code, output, _ = _run(capsys, "curso", "redes", "-s", "1")
+    code, output, _ = _run(capsys, "curso", "redes", "1")  # a section, as a plain number
+    assert "Transparencias tema 1" in output and "Anuncios" not in output
+    code, output, _ = _run(capsys, "curso", "redes", "-s", "1")  # the old spelling still works
     assert "Transparencias tema 1" in output and "Anuncios" not in output
 
 
@@ -169,6 +171,7 @@ class _FakeService:
         self.downloaded = False
 
     async def course_download_plan(self, course_id, module_ids=None):
+        self.wanted = module_ids
         return {
             "course_id": course_id,
             "items": [_Material(11, "Transparencias tema 1"), _Material(12, "Código")],
@@ -204,6 +207,15 @@ def test_download_with_yes_shows_progress_and_summary(capsys, monkeypatch, tmp_p
     assert code == 0 and service.downloaded
     assert "1/2" in output and "2/2" in output
     assert "1 descargados" in output and "1 ya estaban" in output
+
+
+def test_download_takes_material_numbers_as_plain_words(capsys, monkeypatch, tmp_path):
+    service = _FakeService(tmp_path / "Redes")
+    monkeypatch.setattr(curso_view, "_new_service", lambda: service)
+    code, _, _ = _run(capsys, "descargar", "redes", "3", "5", "--si")
+    assert code == 0 and service.wanted == [3, 5]
+    code, _, _ = _run(capsys, "descargar", "redes", "--solo", "4", "--si")  # old spelling
+    assert code == 0 and service.wanted == [4]
 
 
 def test_download_asks_and_respects_no(capsys, monkeypatch, tmp_path):

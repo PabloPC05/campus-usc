@@ -274,9 +274,33 @@ def test_missing_file_fails_before_the_campus(capsys, service, tmp_path):
 def test_draft_assignments_say_so_and_enviar_sends_them(capsys, service, upload):
     service.submit_step = True
     code, output, _ = _run(capsys, "entregar", "aed", "1", str(upload), "--si")
-    assert code == 0 and "Queda como borrador" in " ".join(output.split())
-    assert "--enviar" in output and service.writes() == ["replace"]
+    text = " ".join(output.split())
+    assert code == 0 and "Queda como borrador" in text
+    assert "Para enviarla cuando quieras: campus entregar aed 1" in text
+    assert service.writes() == ["replace"]
     code, output, _ = _run(capsys, "entregar", "aed", "1", "--enviar", "--si")
+    assert code == 0 and "Enviada para cualificar" in output
+    assert service.writes() == ["replace", "submit"]
+
+
+def test_a_draft_asks_whether_to_send_it(capsys, service, upload, monkeypatch):
+    service.submit_step = True
+    asked = []
+    answers = iter(["s", "n"])  # entregar: yes · send it for grading: no
+
+    def ask(prompt):
+        asked.append(prompt)
+        return next(answers)
+
+    monkeypatch.setattr(entregar, "_interactive", lambda: True)
+    monkeypatch.setattr(entregar, "_ask", ask)
+    code, output, _ = _run(capsys, "entregar", "aed", "1", str(upload))
+    assert code == 0 and service.writes() == ["replace"]
+    assert "¿La envío ya para cualificar?" in asked[1]
+    assert "Queda como borrador" in " ".join(output.split())
+    # later, just `campus entregar aed 1` offers it again; this time: yes
+    answers = iter(["s"])
+    code, output, _ = _run(capsys, "entregar", "aed", "1")
     assert code == 0 and "Enviada para cualificar" in output
     assert service.writes() == ["replace", "submit"]
 

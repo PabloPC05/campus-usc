@@ -300,7 +300,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "cursos",
-        "Os meus cursos: tus asignaturas como en el Campus",
+        "Tus asignaturas, como en «Os meus cursos»",
         run,
         configure,
         aliases=("c", "os-meus-cursos"),

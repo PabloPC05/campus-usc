@@ -66,7 +66,7 @@ def test_without_a_screen_it_never_offers_the_window(monkeypatch):
     plan = instalar.choose(machine(system="Linux", browser=None, screen=False), options)
     assert plan.navegador is False and all("navegador" not in q for q in asked)
     text = "\n".join(instalar.describe(machine(system="Linux", browser=None, screen=False)))
-    assert "campus login --pegar" in text
+    assert "pegando la sesión" in text
 
 
 def test_simulating_installs_nothing(monkeypatch, capsys):

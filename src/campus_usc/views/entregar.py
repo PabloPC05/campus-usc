@@ -1,9 +1,11 @@
 """«Engadir entrega»: handing in files to an assignment, from the terminal.
 
+    campus entregar                                your upcoming ones, numbered (= entregas)
+    campus entregar 3 practica.pdf                 hands it in to number 3 (asks first)
     campus entregar <asignatura>                   its assignments, numbered
-    campus entregar <asignatura> <tarea>           that submission: open?, files, limits
+    campus entregar <asignatura> <tarea>           that submission: open?, files, grade
     campus entregar <asignatura> <tarea> FILE…     hands FILE… in (asks first)
-    campus entregar <asignatura> <tarea> --retirar takes the submission back (asks first)
+    campus retirar <asignatura> <tarea>            takes the submission back (asks first)
 
 Every step goes through mcp-usc and its one-time confirmations:
 
@@ -16,8 +18,8 @@ Every step goes through mcp-usc and its one-time confirmations:
    exactly the bytes whose sha256 was confirmed;
 5. the page is opened again to check which files Moodle holds now.
 
-``--enviar`` then also sends it for grading, for assignments that ask for that final step
-(usually it cannot be changed afterwards).
+When the assignment asks for the final «Enviar para cualificar» (usually it cannot be changed
+afterwards), it asks whether to send it too; ``--enviar`` does it without asking (agents).
 """
 
 from __future__ import annotations
@@ -307,7 +309,7 @@ async def _withdraw(
             return fail(f"No se retiró nada: {diagnostic.get('message')}.")
         after = _state(await inspect(service, cmid))
     except AuthenticationRequired:
-        return fail("La sesión del Campus caducó: ejecuta `campus login`.")
+        return fail("La sesión del Campus caducó: escribe `campus entrar`.")
     except (CampusError, ValueError) as exc:
         return fail(f"No se pudo retirar: {exc}")
     say("")
@@ -412,12 +414,19 @@ async def _hand_in(
 
     if args.retirar:
         return finish(await _withdraw(service, cmid, before, args, say, cells))
-    if not files and not args.enviar:  # just looking
-        say("")
-        say(muted(f"  Para entregar: campus entregar {ref} ficheiro.pdf"))
-        if before["files"]:
-            say(muted(f"  Para retirala: campus retirar {ref}"))
-        return finish(0)
+    send = bool(args.enviar)
+    can_ask = not args.si and not json_mode and _interactive()
+    confirmed = False
+    if not files and not send:  # just looking (a draft waiting to be sent: ask)
+        if before["submit_step"] and before["files"] and can_ask:
+            say("")
+            send = confirmed = _ask_to_send(say)
+        if not send:
+            say("")
+            say(muted(f"  Para entregar: campus entregar {ref} ficheiro.pdf"))
+            if before["files"]:
+                say(muted(f"  Para retirala: campus retirar {ref}"))
+            return finish(0)
     if not files and not before["files"]:
         return fail("No hay nada que enviar: entrega antes algún archivo.")
     if not files and not before["submit_step"]:
@@ -437,9 +446,9 @@ async def _hand_in(
             )
         if before["files"]:
             say(_warn("Sustituirá lo que ya tienes entregado: " + ", ".join(before["files"])))
-    if args.enviar:
+    if send and not confirmed:
         say(_warn("La enviará para cualificar: normalmente después ya no podrás cambiarla."))
-    if not args.si:
+    if not args.si and not confirmed:
         if json_mode or not _interactive():
             return fail("Confirma con --si para entregar sin preguntar.")
         say("")
@@ -462,7 +471,7 @@ async def _hand_in(
                 None, paths, preview["confirmation_token"], cmid
             )
         except AuthenticationRequired:
-            return fail("La sesión del Campus caducó: ejecuta `campus login`.")
+            return fail("La sesión del Campus caducó: escribe `campus entrar`.")
         except (CampusError, ValueError) as exc:
             return fail(f"No se pudo entregar: {exc}")
         diagnostic = result.get("diagnostic") or {}
@@ -494,7 +503,10 @@ async def _hand_in(
             + ", ".join(expected)
         )
 
-    if args.enviar:
+    if not send and files and after["submit_step"] and can_ask:
+        say("")
+        send = _ask_to_send(say)
+    if send:
         try:
             ask = await service.preview_submit_assignment(None, True, cmid)
             if not ask.get("allowed"):
@@ -506,7 +518,7 @@ async def _hand_in(
             after = _state(await inspect(service, cmid))
             report["despois"] = after
         except AuthenticationRequired:
-            return fail("La sesión del Campus caducó: ejecuta `campus login`.")
+            return fail("La sesión del Campus caducó: escribe `campus entrar`.")
         except (CampusError, ValueError) as exc:
             fail(f"No se pudo enviar para cualificar: {exc}")
             return finish(1)
@@ -518,12 +530,24 @@ async def _hand_in(
         say(
             _warn(
                 "Queda como borrador: el profesorado no la ve hasta «Enviar para cualificar». "
-                f"Cuando quieras: campus entregar {ref} --enviar"
+                f"Para enviarla cuando quieras: campus entregar {ref}"
             )
         )
-    elif args.enviar:
+    elif send:
         say("  " + paint("✓ Enviada para cualificar.", GREEN, bold=True))
     return finish(0)
+
+
+def _ask_to_send(say: Any) -> bool:
+    """«Enviar para cualificar»: the last step some assignments ask for. No by default."""
+
+    say(
+        _warn(
+            "Esta tarea pide un último paso, «Enviar para cualificar»: hasta entonces el "
+            "profesorado no la ve, y después normalmente ya no podrás cambiarla."
+        )
+    )
+    return _ask("¿La envío ya para cualificar? [s/N] ").strip().casefold() in _YES
 
 
 # A word that names a file even when it does not exist yet (so «No encuentro el archivo»).
@@ -583,6 +607,12 @@ def _resolve(args: argparse.Namespace) -> tuple[dict[str, Any], str, list[str]] 
 def run(args: argparse.Namespace) -> int:
     import asyncio
 
+    if not args.asignatura:  # campus entregar: which ones, and their numbers
+        from .entregas import run as run_entregas
+
+        listing = argparse.Namespace(**vars(args))
+        listing.curso, listing.dias, listing.atrasadas, listing.max = None, 30, False, None
+        return run_entregas(listing)
     resolved = _resolve(args)
     if isinstance(resolved, int):
         return resolved
@@ -649,7 +679,9 @@ def run_retirar(args: argparse.Namespace) -> int:
 
 def configure(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "asignatura", help="La asignatura (aed, ia…) o el número que da `campus entregas`"
+        "asignatura",
+        nargs="?",
+        help="El número que da `campus entregas`, o la asignatura (aed, ia…)",
     )
     parser.add_argument(
         "resto",
@@ -658,13 +690,12 @@ def configure(parser: argparse.ArgumentParser) -> None:
         help="La tarea (su número o su nombre, sin comillas) y los archivos a entregar",
     )
     parser.add_argument("--si", action="store_true", help="No preguntes antes")
-    parser.add_argument(
-        "--retirar", action="store_true", help="Retira la entrega (o usa campus retirar)"
-    )
+    # the old spelling of `campus retirar`, still accepted
+    parser.add_argument("--retirar", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
         "--enviar",
         action="store_true",
-        help="Además, envíala para cualificar (si la tarea lo pide; luego no se puede cambiar)",
+        help="Envíala también para cualificar sin preguntar (si la tarea lo pide)",
     )
 
 
@@ -677,14 +708,14 @@ def configure_retirar(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "entregar",
-        "Entrega archivos en una tarea, o mira cómo está y su nota",
+        "Entrega un archivo: campus entregar 3 practica.pdf",
         run,
         configure,
         aliases=("entrega",),
     ),
     Command(
         "retirar",
-        "Retira tu entrega de una tarea (pregunta antes)",
+        "Retira lo que entregaste en una tarea (pregunta antes)",
         run_retirar,
         configure_retirar,
     ),

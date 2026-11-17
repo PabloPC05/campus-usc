@@ -198,7 +198,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "notas",
-        "Cualificacións: tus notas y el detalle de cada asignatura",
+        "Tus notas; con una asignatura, el detalle",
         run,
         configure,
         aliases=("cualificacions", "calificaciones"),

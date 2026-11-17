@@ -124,8 +124,8 @@ def recommend_browser(machine: Machine) -> tuple[bool, str]:
 
     if not machine.screen:
         return False, (
-            "No hace falta: este ordenador no tiene pantalla (¿estás por SSH?). Entrarás con "
-            "campus login --pegar, copiando la sesión desde el navegador de otro equipo."
+            "No hace falta: este ordenador no tiene pantalla (¿estás por SSH?). Entrarás "
+            "copiando la sesión desde el navegador de otro equipo: campus entrar te guía."
         )
     if machine.browser:
         return False, (
@@ -136,7 +136,7 @@ def recommend_browser(machine: Machine) -> tuple[bool, str]:
     return True, (
         f"Recomendado: no encuentro Chrome, Edge, Brave ni Chromium (veo {seen}), y la ventana "
         "de entrar necesita uno de ellos. Sin él también se puede entrar, pero copiando la "
-        "sesión a mano (campus login --pegar)."
+        "sesión a mano desde tu navegador (campus entrar te guía)."
     )
 
 
@@ -174,7 +174,7 @@ def ask(question: str, default: bool) -> bool:
 
 def describe(machine: Machine) -> list[str]:
     if not machine.screen:
-        login = "pegando la sesión (campus login --pegar), sin ventana"
+        login = "pegando la sesión desde otro equipo, sin ventana"
     elif machine.browser:
         login = f"con una ventana de {machine.browser}"
     else:
@@ -318,10 +318,9 @@ def main(argv: list[str] | None = None) -> int:
         print(muted("  El horario tardará un poco la primera vez que lo pidas."))
     if options.si:
         return 0
-    how = ["login"] if machine.screen else ["login", "--pegar"]
     if ask("¿Entras ya en el Campus?", True):
-        return subprocess.run([campus_path(), *how], check=False).returncode
-    print(f"  Cuando quieras: campus {' '.join(how)}")
+        return subprocess.run([campus_path(), "entrar"], check=False).returncode
+    print("  Cuando quieras: campus entrar")
     return 0
 
 

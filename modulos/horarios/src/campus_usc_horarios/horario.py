@@ -1024,21 +1024,21 @@ def compact_today(
 COMMANDS = [
     Command(
         "horario",
-        "Horario de la semana de tus asignaturas",
+        "Tu horario de clases de la semana",
         run_week,
         configure_week,
         aliases=("h", "semana"),
     ),
     Command(
         "hoy",
-        "Agenda de hoy: clases y entregas",
+        "Lo de hoy: clases y entregas",
         run_today,
         configure_day,
         aliases=("hoxe",),
     ),
     Command(
         "mañana",
-        "Agenda de mañana: clases y entregas",
+        "Lo de mañana: clases y entregas",
         run_tomorrow,
         configure_day,
         aliases=("manana", "mana", "mañá"),

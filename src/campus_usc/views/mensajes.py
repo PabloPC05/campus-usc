@@ -166,7 +166,7 @@ async def _write(args: argparse.Namespace) -> int:
     try:
         person, options = await _recipient(service, args.destino)
     except AuthenticationRequired:
-        return fail("La sesión del Campus caducó: ejecuta `campus login`.")
+        return fail("La sesión del Campus caducó: escribe `campus entrar`.")
     except (CampusError, ValueError) as exc:
         return fail(f"No pude buscar a quién escribir: {exc}")
     if person is None:
@@ -197,7 +197,7 @@ async def _write(args: argparse.Namespace) -> int:
             return fail(str(preview.get("warning") or "Moodle no permite escribir a esta persona."))
         result = await service.send_message(person["user_id"], text, confirmation_token=token)
     except AuthenticationRequired:
-        return fail("La sesión del Campus caducó: ejecuta `campus login`.")
+        return fail("La sesión del Campus caducó: escribe `campus entrar`.")
     except (CampusError, ValueError) as exc:
         return fail(f"No se pudo enviar: {exc}")
     sources.refresh_in_background(["mensajes", f"conversa/{person['user_id']}"])
@@ -226,14 +226,14 @@ def configure_escribir(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "mensajes",
-        "Mensaxes privadas, por persona (sin marcarlas como leídas)",
+        "Tus mensajes privados; con un número, la conversación",
         run,
         configure,
         aliases=("mensaxes",),
     ),
     Command(
         "escribir",
-        "Escribe un mensaje a alguien del Campus (pregunta antes)",
+        "Escribe un mensaje a alguien (pregunta antes de enviarlo)",
         run_escribir,
         configure_escribir,
     ),

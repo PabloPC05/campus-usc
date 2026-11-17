@@ -154,7 +154,6 @@ def _login_window(args: argparse.Namespace) -> int:
 
     if not auth.available():
         return fail(auth.NO_BROWSER)
-    # Silent renewal needs no screen; without one, ensure() points to --pegar.
     return 0 if auth.ensure(interactive=True, minutes=args.minutos) else 1
 
 
@@ -177,8 +176,10 @@ def _login_paste(args: argparse.Namespace) -> int:
             + link(paint(LOGIN_URL, BLUE, bold=True), LOGIN_URL)
             + " en tu navegador y entra como siempre.",
             "  2. Copia el valor de la cookie " + bold("MoodleSession") + " de cv.usc.es:",
-            muted("     Safari: Desarrollo › Mostrar inspector web › Almacenamiento › Cookies"),
-            muted("     Chrome/Edge: F12 › Aplicación › Cookies · Firefox: F12 › Almacenamiento"),
+            muted("     Chrome o Edge: F12 › Aplicación › Cookies · Firefox: F12 › Almacenamiento"),
+            muted("     Safari: activa antes Ajustes › Avanzado › «Mostrar funciones para"),
+            muted("     desarrolladores web»; luego Desarrollo › Mostrar inspector web ›"),
+            muted("     Almacenamiento › Cookies"),
             "  3. Pégalo aquí (no se ve al escribir). Se comprueba con el Campus antes de",
             "     guardarlo.",
             "",
@@ -198,13 +199,37 @@ def _login_paste(args: argparse.Namespace) -> int:
 
 
 def _login(args: argparse.Namespace) -> int:
-    from . import sources
-    from .style import GREEN, bold, muted, paint
+    import textwrap
+
+    from . import auth, sources
+    from .style import GREEN, bold, muted, paint, term_width
     from .ui import navbar, out
+    from .views import fail
 
     out([navbar(["Acceder"]), ""])
+    como = (args.como or "").strip().casefold()
+    if como and como not in _PASTE_WORDS:
+        return fail(
+            f"No entiendo «{args.como}». Escribe campus entrar, o campus entrar pegar para "
+            "entrar pegando la sesión de tu navegador."
+        )
     try:
-        code = _login_paste(args) if args.pegar else _login_window(args)
+        if args.pegar or como:
+            code = _login_paste(args)
+        elif (reason := auth.window_unavailable()) is None:
+            code = _login_window(args)
+        elif auth.available() and auth.ensure(interactive=False):
+            code = 0  # no screen, but the login browser remembered you: renewed silently
+        else:  # no window possible here: straight to pasting, saying why
+            out(
+                [
+                    *textwrap.wrap(
+                        reason, term_width() - 4, initial_indent="  ", subsequent_indent="  "
+                    ),
+                    "",
+                ]
+            )
+            code = _login_paste(args)
     except KeyboardInterrupt:
         return 130
     if code:
@@ -281,7 +306,7 @@ def _salir(args: argparse.Namespace) -> int:
     removed = store.clear()
     if removed:
         lines.append(done(f"Borrados {removed} datos guardados (notas, mensajes, tareas…)."))
-    out(lines + ["", muted("  Para volver a entrar: ") + bold("campus login")])
+    out(lines + ["", muted("  Para volver a entrar: ") + bold("campus entrar")])
     return 0
 
 
@@ -293,12 +318,18 @@ def _configure_salir(parser: argparse.ArgumentParser) -> None:
     )
 
 
+_PASTE_WORDS = {"pegar", "pega", "pegando"}
+
+
 def _configure_login(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
-        "--pegar",
-        action="store_true",
-        help="Entra con tu navegador y pega aquí su cookie MoodleSession (sin ventana aparte)",
+        "como",
+        nargs="?",
+        metavar="pegar",
+        help="«pegar»: entra con tu navegador y pega aquí la sesión, sin ventana aparte",
     )
+    # the old spelling, still accepted: campus login --pegar
+    parser.add_argument("--pegar", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
         "--minutos", type=int, default=15, help="Tiempo para completar el login (15)"
     )
@@ -325,7 +356,7 @@ def _estado(args: argparse.Namespace) -> int:
         )
         code = 0
     except Exception as exc:  # noqa: BLE001 - shown to the person, never raised
-        session = paint(" ✗ ", WHITE, RED, bold=True) + f" {exc}  →  {bold('campus login')}"
+        session = paint(" ✗ ", WHITE, RED, bold=True) + f" {exc}  →  {bold('campus entrar')}"
         code = 1
     lines = [navbar(["Estado"]), "", " " + session, block("Caché local", str(store.cache_dir()))]
     entries = sorted(store.cache_dir().glob("*.json")) if store.cache_dir().is_dir() else []
@@ -382,17 +413,11 @@ def _modulos(args: argparse.Namespace) -> int:
 def _builtin() -> list[Command]:
     return [
         Command(
-            "actualizar", "Descarga todo de nuevo y lo deja en caché", _sync, aliases=("sync",)
-        ),
-        Command("estado", "Comprueba la sesión y lo fresca que está la caché", _estado),
-        Command("modulos", "Lo que puedes añadir a campus (horario y exámenes)", _modulos),
-        Command("limpiar", "Borra las cachés locales (CLI y motor)", _limpiar),
-        Command(
-            "login",
-            "Inicia sesión en el Campus (Microsoft + MFA)",
+            "entrar",
+            "Entra en el Campus con tu cuenta de la USC",
             _login,
             _configure_login,
-            aliases=("acceder",),
+            aliases=("login", "acceder"),
         ),
         Command(
             "salir",
@@ -401,6 +426,15 @@ def _builtin() -> list[Command]:
             _configure_salir,
             aliases=("logout", "cerrar-sesion"),
         ),
+        Command("actualizar", "Trae todo del Campus ahora y lo guarda", _sync, aliases=("sync",)),
+        Command("estado", "Si has entrado, y de cuándo es lo guardado", _estado),
+        Command(
+            "modulos",
+            "Partes que puedes añadir (horario y exámenes)",
+            _modulos,
+            aliases=("módulos",),
+        ),
+        Command("limpiar", "Borra lo guardado en este ordenador (no cierra sesión)", _limpiar),
     ]
 
 
@@ -416,18 +450,24 @@ def _help(commands: list[Command]) -> None:
     lines.append(
         "  " + bold("campus") + muted(" [orden] [opciones]   ·   sin orden abre el Taboleiro")
     )
+    lines.append(
+        muted("  Para empezar: ")
+        + bold("campus entrar")
+        + muted("  ·  ")
+        + bold("campus entregas")
+        + muted("  ·  ")
+        + bold("campus entregar 3 practica.pdf")
+    )
     lines.append("")
     from . import modulos
 
     from_modules = {command.name for command in modulos.commands()}
+    commands = [command for command in commands if not command.hidden]
 
     def row(command: Command) -> str:
+        # One name per command: the others (aliases, old names) still work, unlisted.
         name = f"  {paint(command.name.ljust(16), BLUE, bold=True)}"
-        aliases = muted(f"  ({', '.join(command.aliases)})") if command.aliases else ""
-        line = name + command.help + aliases
-        if width(line) > cells:  # narrow terminal: drop the aliases, then shorten the help
-            line = name + truncate(command.help, cells - width(name))
-        return line
+        return name + truncate(command.help, max(10, cells - width(name)))
 
     lines += [row(command) for command in commands if command.name not in from_modules]
     for module, _ in modulos.loaded():
@@ -441,10 +481,10 @@ def _help(commands: list[Command]) -> None:
             muted(f"  Módulos que puedes añadir: {', '.join(missing)}  ·  campus modulos"),
         ]
     lines.append("")
-    lines.append(
-        muted("  Opciones comunes: --json  ·  -f/--fresco (ignora la caché)  ·  --sin-color")
-    )
     lines.append(muted("  Asignaturas por alias, código o nombre: ia, soi, asr, redes, G4012224…"))
+    lines.append(
+        muted("  Para programas y agentes: --json  ·  --fresco (sin lo guardado)  ·  --sin-color")
+    )
     out(lines)
 
 

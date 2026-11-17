@@ -37,7 +37,7 @@ from ..ui import (
     long_day,
     parse_moment,
 )
-from . import Command, show
+from . import Command, show, words_as_flags
 
 _DUE_SUFFIX = re.compile(
     r"\s+(?:pendente de entrega|está pendiente|is due|vence|debe entregarse|péchase|closes)$",
@@ -191,7 +191,7 @@ def _render(results: dict[str, sources.Result], args: argparse.Namespace) -> lis
             "  "
             + paint(f" {hidden} ", WHITE, RED, bold=True)
             + paint(f" {'atrasada' if hidden == 1 else 'atrasadas'} sin entregar", RED)
-            + muted("  ·  campus pendientes -a")
+            + muted("  ·  campus pendientes atrasadas")
         )
     return lines
 
@@ -218,6 +218,8 @@ def _courses_from(events: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
 
 
 def run(args: argparse.Namespace) -> int:
+    words_as_flags(args, "curso", {"atrasadas": {"atrasadas", "atrasada", "atrasados", "atrasado"}})
+
     def payload(results: dict[str, sources.Result]) -> Any:
         items, _ = items_in_window(
             results["pendientes"].data, days=args.dias, overdue=args.atrasadas
@@ -228,7 +230,9 @@ def run(args: argparse.Namespace) -> int:
 
 
 def configure(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("curso", nargs="?", help="Solo esta asignatura (ia, redes, soi…)")
+    parser.add_argument(
+        "curso", nargs="*", help="Solo esta asignatura (ia, redes…); «atrasadas» añade lo atrasado"
+    )
     parser.add_argument("-d", "--dias", type=int, default=7, help="Días hacia delante (7)")
     parser.add_argument("-a", "--atrasadas", action="store_true", help="Incluye lo atrasado")
     parser.add_argument("-c", "--por-cursos", action="store_true", help="Agrupa por asignatura")
@@ -237,7 +241,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "pendientes",
-        "Cronograma: entregas y cuestionarios que vencen",
+        "Todo lo que vence pronto: tareas y cuestionarios",
         run,
         configure,
         aliases=("cronograma", "p"),

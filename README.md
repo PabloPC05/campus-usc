@@ -6,30 +6,35 @@ Cada asignatura sale en el color que Moodle da a su tarjeta y las etiquetas est�
 como en la web. Cada pantalla tarda unos 30 ms.
 
 ```sh
-campus                    # Taboleiro: hoxe, calendario, cronograma e cursos
+campus                    # el Taboleiro: hoy, el calendario, lo pendiente y tus cursos
+campus entrar             # entra en el Campus (la primera vez lo hace solo)
 campus entregas           # tus próximas entregas, numeradas: «campus entregar 3 practica.pdf»
-campus pendientes         # Cronograma (-a atrasadas, -d 30 días, -c por cursos, «redes» solo esa)
+campus pendientes         # todo lo que vence pronto; «campus pendientes atrasadas» con lo atrasado
 campus calendario         # el mes, con tus entregas marcadas
 campus cursos             # «Os meus cursos» en tarjetas, con su alias para los demás comandos
-campus curso ia           # la página de la asignatura: secciones, actividades y lo pendiente
-campus materiales ia      # sus archivos y carpetas
-campus descargar ia       # baja sus materiales con barra de progreso (pregunta antes)
+campus curso ia           # la página de la asignatura; «campus curso ia 2» solo la sección 2
+campus materiales ia      # sus archivos y carpetas, numerados
+campus descargar ia       # los baja (pregunta antes); «campus descargar ia 3 5» solo esos dos
 campus entregar redes 3 practica.pdf   # entrega un archivo en una tarea (pregunta antes)
 campus entregar asr t1    # cómo está una entrega y, si ya está corregida, su nota y comentario
 campus retirar redes 3    # retira tu entrega (pregunta antes)
 campus notificaciones     # notificacións numeradas; «campus notificaciones 3» lee una entera
 campus notas              # «Cualificacións»; «campus notas asr» con cada nota y su comentario
-campus avisos             # los anuncios del profesorado de todas tus asignaturas
-campus foros redes        # los foros de una asignatura; «campus debate 420773» lee uno entero
+campus avisos             # los anuncios del profesorado, numerados; «campus avisos 2» lee uno
+campus foros redes        # sus foros; «campus foros redes 1» sus debates; «… redes 1 4» lee uno
 campus mensajes           # mensajes privados por persona; «campus escribir 2 "…"» responde
 campus cuestionarios ia   # sus cuestionarios; «campus cuestionarios ia 1» fechas, intentos y nota
 campus abrir redes        # abre la asignatura en el navegador
 campus salir              # cierra la sesión y borra lo guardado en este ordenador
-campus estado             # sesión y frescura de la caché · campus ayuda para todo lo demás
+campus estado             # si has entrado y de cuándo es lo guardado · campus ayuda: el resto
 ```
 
 Las asignaturas se indican por alias, código, número o nombre (`ia`, `soi`, `asr`, `redes`,
-`G4012224`). Todo acepta `--json`, `-f` para ignorar la caché y `--sin-color`.
+`G4012224`). Los comandos son palabras en castellano y lo de cada día no lleva opciones con
+guiones: cada lista numera lo suyo y ese número es lo que escribes después. Los nombres de antes
+(`login`, `login --pegar`, `debate`, `curso -s`, `descargar --solo`, `entregar --retirar`)
+siguen funcionando. Para programas y agentes, todo acepta `--json`, `--fresco` (pregunta al
+Campus en vez de usar lo guardado) y `--sin-color`.
 
 ### Módulo opcional: horario y exámenes
 
@@ -90,7 +95,7 @@ pulsa «Sí». La ventana se cierra sola y ya está.
 Después, cuando la sesión del Campus caduca (pasa a las pocas horas sin usarla), `campus` la
 renueva solo, sin ventana, en unos segundos: la ventana de entrar recuerda tu cuenta como
 cualquier navegador. Solo vuelve a aparecer si Microsoft te pide algo nuevo, por ejemplo después
-de cambiar la contraseña. `campus login` hace lo mismo cuando quieras. Se guarda la cookie de
+de cambiar la contraseña. `campus entrar` hace lo mismo cuando quieras. Se guarda la cookie de
 sesión del Campus en el llavero del sistema, nunca tu contraseña.
 
 Para cerrar sesión, `campus salir`: la cierra en el propio Campus (esa sesión deja de valer en
@@ -99,17 +104,18 @@ guardados en este ordenador. Úsalo siempre en un ordenador que no sea tuyo. Con
 olvida en este ordenador sin cerrarla en el Campus.
 
 En un Linux sin escritorio (un servidor o una máquina virtual por SSH) no se puede abrir la
-ventana: `campus login --pegar` te deja entrar con el navegador de otro equipo. Como esos sistemas
-no tienen llavero, la sesión se guarda en un archivo privado que solo puede leer tu usuario.
+ventana. `campus entrar` lo nota y te lo dice: entras con el navegador de otro equipo y pegas
+aquí la sesión. Como esos sistemas no tienen llavero, la sesión se guarda en un archivo privado
+que solo puede leer tu usuario.
 
-Si no tienes ninguno de esos navegadores (por ejemplo, un Mac solo con Safari), entra con
-`campus login --pegar` o añade el navegador incluido, que ocupa unos 160 MB: instala
-`campus-usc[navegador]` en vez de `campus-usc`.
+Si no tienes ninguno de esos navegadores (por ejemplo, un Mac solo con Safari), `campus entrar`
+te pide la sesión de tu navegador de la misma forma. Para tener la ventana, instala Chrome o Edge,
+o añade el navegador incluido, que ocupa unos 160 MB: el instalador te lo ofrece.
 
 ¿Por qué una ventana y no un enlace, como en otras apps? En Moodle eso es el inicio de sesión de
 la app móvil, y la USC lo tiene desactivado (`enablemobilewebservice = 0`). Además, la cookie del
 Campus es `HttpOnly`: ninguna página puede pasársela a la terminal. Si prefieres tu propio
-navegador, `campus login --pegar` te abre el Campus, te dice dónde copiar la cookie
+navegador, `campus entrar pegar` te abre el Campus, te dice dónde copiar la cookie
 `MoodleSession` y te la pide sin que se vea; la comprueba antes de guardarla.
 
 ## Velocidad
@@ -160,22 +166,24 @@ por si `campus` choca con otro.
 ## Entregar
 
 ```sh
-campus entregas                       # tus tareas pendientes, numeradas
+campus entregas                       # tus tareas pendientes, numeradas (o campus entregar)
 campus entregar 3 practica.pdf        # entrega la número 3 de esa lista
 campus entregar aed                   # las tareas de una asignatura, numeradas
 campus entregar aed 2 practica.pdf    # entrega la tarea 2 de esa asignatura
 campus entregar aed practica 4 memoria.pdf codigo.zip   # o por su nombre, sin comillas
 campus entregar aed 2                 # cómo está: abierta, lo que entregaste y su nota
 campus retirar aed 2                  # la retira, como «Eliminar entrega» en la web
-campus entregar aed 2 --enviar        # «Enviar para cualificar», si la tarea lo pide
 ```
 
 La tarea se indica por su número en la lista o por palabras de su nombre, sin comillas: lo que
 viene después y es un archivo es lo que se entrega. Antes de subir nada, `campus` abre la página
 de entrega una vez, como «Engadir entrega» en la web. Así sabe si sigue abierta, cuántos archivos
 admite y qué tienes ya entregado. Lo nuevo sustituye a lo anterior, y te lo dice antes de
-preguntar. Al terminar vuelve a abrir la página para comprobar qué archivos tiene Moodle. Si la
-tarea pide el paso final, te avisa de que queda como borrador hasta `--enviar`.
+preguntar. Al terminar vuelve a abrir la página para comprobar qué archivos tiene Moodle.
+
+Si la tarea pide el paso final, «Enviar para cualificar», te pregunta si la envías ya, porque
+después normalmente ya no se puede cambiar. Si dices que no, queda como borrador y
+`campus entregar aed 2` te lo vuelve a preguntar. Los agentes, sin terminal, usan `--enviar`.
 
 ## Qué deja huella en el Campus
 
@@ -185,13 +193,14 @@ página web, y entonces `campus` hace lo mismo que harías tú en el navegador:
 
 - `notas`, `avisos`, `foros` y el detalle de un cuestionario abren su página una vez, y Moodle
   apunta la visita igual que cuando entras desde la web. No marcan nada como leído.
-- `debate` abre el debate, así que Moodle marca sus mensajes como leídos, como en la web.
+- Leer un aviso o un debate (`campus avisos 2`, `campus foros redes 1 4`) lo abre, así que
+  Moodle marca sus mensajes como leídos, como en la web.
 - `descargar` abre cada material nuevo, así que queda registrado como visto. Pregunta antes
   (o `--si`) y no vuelve a abrir lo ya descargado.
 
 Y estos cambian cosas, siempre preguntando antes (o con `--si` si no hay terminal):
 
-- `entregar`, `entregar --retirar` y `entregar --enviar` cambian tu entrega.
+- `entregar` y `retirar` cambian tu entrega; enviarla para cualificar no tiene vuelta atrás.
 - `escribir` envía un mensaje de verdad: te lo enseña y espera a que digas que sí.
 - `notificaciones N --marcar-leida` marca esa notificación como leída.
 

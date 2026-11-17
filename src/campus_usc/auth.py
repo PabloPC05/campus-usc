@@ -35,7 +35,17 @@ INTRO = (
 
 NO_SCREEN = (
     "Este ordenador no tiene pantalla para la ventana de entrar (¿estás por SSH?). "
-    "Entra desde el navegador de otro equipo y pega la sesión: campus login --pegar"
+    "Escribe campus entrar: te dirá cómo entrar con el navegador de otro equipo."
+)
+# What `campus entrar` says before asking for the session by hand.
+NO_SCREEN_PASTE = (
+    "Este ordenador no tiene pantalla para abrir la ventana de entrar (¿estás por SSH?): "
+    "entra con el navegador de otro equipo y pega aquí la sesión."
+)
+NO_BROWSER_PASTE = (
+    "No encuentro Chrome, Edge, Brave ni Chromium para abrir la ventana de entrar: entra con "
+    "tu navegador y pega aquí la sesión. (Para no tener que hacerlo, instala Chrome o Edge, o "
+    "añade el navegador incluido con el instalador: campus modulos te dice cómo.)"
 )
 
 
@@ -64,7 +74,7 @@ def session_saved() -> bool:
 ENGINE_ZIP = "https://github.com/PabloPC05/campus-usc/archive/refs/heads/main.zip"
 NO_BROWSER = (
     "No encuentro Chrome, Edge, Brave ni Chromium para la ventana de entrar. Puedes instalar "
-    "uno de ellos, entrar con tu navegador pegando la sesión (campus login --pegar) o añadir "
+    "uno de ellos, entrar con tu navegador pegando la sesión (campus entrar pegar) o añadir "
     "el navegador incluido (unos 160 MB): "
     f'uv tool install --reinstall "campus-usc[navegador] @ {ENGINE_ZIP}"'
 )
@@ -74,6 +84,16 @@ def bundled_browser() -> bool:
     """Whether the bundled login browser (Playwright, the `navegador` extra) is installed."""
 
     return importlib.util.find_spec("playwright") is not None
+
+
+def window_unavailable() -> str | None:
+    """Why the sign-in window cannot open here (no screen, no browser), or None if it can."""
+
+    if not has_screen():
+        return NO_SCREEN_PASTE
+    if not available():
+        return NO_BROWSER_PASTE
+    return None
 
 
 def available() -> bool:
@@ -189,7 +209,15 @@ def run_with_session(attempt: Any, *, interactive: bool) -> int:
         except SessionExpired:
             if tries or not ensure(interactive=interactive):
                 break
-    return fail("La sesión del Campus caducó y no se pudo renovar: prueba `campus login`.")
+    return fail("La sesión del Campus caducó y no se pudo renovar: prueba `campus entrar`.")
 
 
-__all__ = ["SessionExpired", "available", "ensure", "run_with_session", "silent", "window"]
+__all__ = [
+    "SessionExpired",
+    "available",
+    "ensure",
+    "run_with_session",
+    "silent",
+    "window",
+    "window_unavailable",
+]

@@ -24,7 +24,7 @@ from ..ui import (
     empty,
     parse_moment,
 )
-from . import Command, show
+from . import Command, add_max, show, words_as_flags
 from .cronograma import _courses_from, activity_name
 
 _CMID = re.compile(r"[?&]id=(\d+)")
@@ -135,18 +135,18 @@ def _render(results: dict[str, sources.Result], args: argparse.Namespace) -> lis
     lines.append("")
     if not soon:
         lines.append(empty(f"Non tes entregas nos próximos {args.dias} días."))
-    shown = soon[: args.numero] if args.numero else soon
+    shown = soon[: args.max] if args.max else soon
     for item in shown:
         lines.extend(entry_lines(item, cells, now, numbers.get(id(item))))
     if len(shown) < len(soon):
-        lines.append(muted(f"  … e {len(soon) - len(shown)} máis · sin -n para verlas todas"))
+        lines.append(muted(f"  … e {len(soon) - len(shown)} máis · sin -n para velas todas"))
     if late and not args.atrasadas:
         lines.append("")
         lines.append(
             "  "
             + paint(f" {len(late)} ", WHITE, RED, bold=True)
             + paint(" atrasadas que aínda admiten entrega", RED)
-            + muted("  ·  campus entregas -a")
+            + muted("  ·  campus entregas atrasadas")
         )
     if soon or (late and args.atrasadas):
         lines.append("")
@@ -155,6 +155,8 @@ def _render(results: dict[str, sources.Result], args: argparse.Namespace) -> lis
 
 
 def run(args: argparse.Namespace) -> int:
+    words_as_flags(args, "curso", {"atrasadas": {"atrasadas", "atrasada", "atrasados", "atrasado"}})
+
     def payload(results: dict[str, sources.Result]) -> Any:
         data = results["pendientes"].data
         soon, late = upcoming(data, days=args.dias)
@@ -175,12 +177,16 @@ def run(args: argparse.Namespace) -> int:
 
 
 def configure(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("curso", nargs="?", help="Solo esta asignatura (ia, redes, soi…)")
+    parser.add_argument(
+        "curso",
+        nargs="*",
+        help="Solo esta asignatura (ia, redes…); «atrasadas» añade las que aún admiten entrega",
+    )
     parser.add_argument("-d", "--dias", type=int, default=30, help="Días hacia delante (30)")
     parser.add_argument(
         "-a", "--atrasadas", action="store_true", help="Incluye las atrasadas aún abiertas"
     )
-    parser.add_argument("-n", "--numero", type=int, help="Solo las N primeras")
+    add_max(parser, None, "mostrar")
 
 
 COMMANDS = [
@@ -189,7 +195,7 @@ COMMANDS = [
         "Tus próximas entregas, numeradas para entregarlas",
         run,
         configure,
-        aliases=("proximas", "e2"),
+        aliases=("proximas", "próximas", "e2"),
     )
 ]
 

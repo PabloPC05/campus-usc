@@ -86,7 +86,7 @@ def test_without_a_screen_only_the_silent_way_is_tried(engine, capsys, monkeypat
     monkeypatch.setattr(auth, "has_screen", lambda: False)
     assert auth.ensure(interactive=True) is False
     assert engine.calls == ["silent"]  # no window could ever open
-    assert "campus login --pegar" in capsys.readouterr().err
+    assert "campus entrar" in capsys.readouterr().err
 
 
 def test_the_message_says_whether_you_never_logged_in_and_how(monkeypatch):
@@ -96,8 +96,10 @@ def test_the_message_says_whether_you_never_logged_in_and_how(monkeypatch):
     monkeypatch.setattr(auth, "session_saved", lambda: False)
     monkeypatch.setattr(auth, "has_screen", lambda: False)
     text = ui.status_line(expired)
-    assert "No has entrado en el Campus" in text and "campus login --pegar" in text
+    # one command for everyone: `campus entrar` itself knows when there is no window
+    assert "No has entrado en el Campus" in text and "campus entrar" in text
+    assert "--pegar" not in text
     monkeypatch.setattr(auth, "session_saved", lambda: True)
     monkeypatch.setattr(auth, "has_screen", lambda: True)
     text = ui.status_line(expired)
-    assert "La sesión del Campus caducó" in text and "--pegar" not in text
+    assert "La sesión del Campus caducó" in text and "campus entrar" in text

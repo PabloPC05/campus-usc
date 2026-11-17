@@ -231,6 +231,17 @@ def test_help_lists_commands(capsys):
     assert "pendientes" in output and "actualizar" in output and "Campus Virtual" in output
 
 
+def test_help_shows_one_plain_name_per_command(capsys):
+    _, output = _run(capsys, "ayuda")
+    names = [
+        line.split()[0] for line in output.splitlines() if line.startswith("  ") and line.split()
+    ]
+    assert "entrar" in names and "login" not in names  # Spanish, and a pair with «salir»
+    assert "debate" not in names  # it takes a Moodle id: kept for agents, not listed
+    assert "(" not in "".join(line for line in output.splitlines() if "entregar" in line)
+    assert "Para empezar" in output and "campus entregar 3 practica.pdf" in output
+
+
 def test_dashboard_opens_without_waiting_for_slow_blocks(capsys, monkeypatch):
     monkeypatch.setattr(sources, "fetch_now", lambda *a, **k: pytest.fail("blocked"))
     now = datetime.now()

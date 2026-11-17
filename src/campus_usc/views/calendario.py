@@ -427,7 +427,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "calendario",
-        "Calendario del mes con tus entregas",
+        "El calendario del mes, con tus entregas",
         run,
         configure,
         aliases=("cal",),

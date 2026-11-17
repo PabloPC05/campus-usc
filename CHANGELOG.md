@@ -68,6 +68,14 @@ Primera versión, separada de mcp-usc en su propio repositorio.
 - Entrar sin descargar ningún navegador: la ventana de login se abre en tu Chrome, Edge, Brave o
   Chromium (con un perfil aparte). La instalación pasa de unos 208 MB a unos 48 MB; quien no
   tenga ninguno de esos usa `campus login --pegar` o el extra `campus-usc[navegador]`.
+- Nombres pensados para alumnos. `campus entrar` (antes `login`) abre la ventana o, si aquí no
+  puede (sin pantalla, sin Chrome ni Edge), te pide la sesión en ese momento; `campus entrar
+  pegar` lo elige a mano. Lo de cada día va con palabras y números, sin opciones con guiones:
+  `entregas atrasadas`, `curso ia 2`, `descargar ia 3 5`, `avisos 2` y `foros redes 1 4` (sin
+  ids de Moodle). `campus entregar` solo enseña la lista numerada, y si una tarea pide «Enviar
+  para cualificar», pregunta. `-n/--max` dice cuántos (`--numero` chocaba con los números de las
+  listas). La ayuda da un nombre por comando y descripciones sin jerga. Los nombres de antes
+  siguen funcionando.
 - Instalador con menú (`instalar.sh` en Mac y Linux, `instalar.ps1` en Windows): mira el
   ordenador, explica las tres partes (el Campus, horario y exámenes, el navegador incluido) con
   lo que ocupa y cambia cada una, recomienda lo que hace falta, instala y ofrece entrar.

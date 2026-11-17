@@ -291,7 +291,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "notificaciones",
-        "Notificacións del Campus; con un número, la lee entera",
+        "Tus notificaciones; con un número, lee una entera",
         run,
         configure,
         aliases=("n", "notificacions"),

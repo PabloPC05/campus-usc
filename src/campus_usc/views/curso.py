@@ -1,7 +1,7 @@
 """One course: its page, its downloadable materials, downloading them, opening it.
 
 * ``curso``      the course page like Moodle shows it (sections and activities);
-* ``materiales`` only the files and folders, with the numbers ``descargar --solo`` takes;
+* ``materiales`` only the files and folders, with the numbers ``descargar aed 3 5`` takes;
 * ``descargar``  downloads them, keeping the confirmation of ``mcp-usc descargar``:
   with a session Moodle records that each new material was opened, so we ask first;
 * ``abrir``      opens the course or a Campus page in the browser.
@@ -165,7 +165,7 @@ def sections_of(items: list[dict[str, Any]]) -> list[tuple[int | None, str, list
 def pick_sections(
     sections: list[tuple[int | None, str, list[dict[str, Any]]]], query: str | None
 ) -> list[tuple[int | None, str, list[dict[str, Any]]]]:
-    """``--seccion TEXT|N``: a section number, else words of the section's name."""
+    """``campus curso aed 2``: a section number, else words of the section's name."""
 
     if not query:
         return sections
@@ -410,6 +410,9 @@ def render_course(
 
 
 def run_curso(args: argparse.Namespace) -> int:
+    words = getattr(args, "seccion", None)
+    if isinstance(words, list):  # campus curso aed tema 2 → «tema 2»
+        args.seccion = " ".join(words) or getattr(args, "seccion_opcion", None)
     course = resolve_course(args.asignatura)
     if course is None:
         return 1
@@ -448,7 +451,11 @@ def configure_curso(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "asignatura", help="Alias, código G, número o parte del nombre (ia, redes…)"
     )
-    parser.add_argument("-s", "--seccion", help="Solo esta sección: su número o parte del nombre")
+    parser.add_argument(
+        "seccion", nargs="*", help="Solo esta sección: su número o parte de su nombre"
+    )
+    # the old spelling, still accepted: campus curso aed -s 2
+    parser.add_argument("-s", "--seccion", dest="seccion_opcion", help=argparse.SUPPRESS)
 
 
 # --- materiales ---------------------------------------------------------------------------------
@@ -491,7 +498,7 @@ def render_materiales(
     lines.append(
         muted(f"  {len(files)} materiales  ·  campus descargar ")
         + paint(course_alias(course.get("full_name")) or str(course["id"]), BLUE, bold=True)
-        + muted("  ·  --solo NÚMERO…  para elegir")
+        + muted("  <números>  para elegir")
     )
     if others:
         text = ", ".join(f"{count} {kind}" for kind, count in others.most_common())
@@ -608,7 +615,8 @@ async def _download(course: dict[str, Any], args: argparse.Namespace) -> int:
     title = course_title(course.get("full_name"))
     service = _new_service()
     try:
-        plan = await service.course_download_plan(course["id"], args.solo or None)
+        wanted = list(args.numeros or []) + list(args.solo or [])
+        plan = await service.course_download_plan(course["id"], wanted or None)
     except AuthenticationRequired:
         raise SessionExpired from None  # nothing downloaded yet: renew and start again
     except (CampusError, ValueError) as exc:
@@ -666,7 +674,7 @@ async def _download(course: dict[str, Any], args: argparse.Namespace) -> int:
             plan, folder=folder, force=args.forzar, progress=progress
         )
     except AuthenticationRequired:
-        return fail("La sesión del Campus caducó: ejecuta `campus login`.")
+        return fail("La sesión del Campus caducó: escribe `campus entrar`.")
     except (CampusError, ValueError) as exc:
         return fail(str(exc))
     if live:
@@ -710,10 +718,12 @@ def configure_descargar(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "asignatura", help="Alias, código G, número o parte del nombre (ia, redes…)"
     )
-    parser.add_argument("--carpeta", help="Carpeta de destino de esta asignatura")
     parser.add_argument(
-        "--solo", type=int, nargs="+", metavar="NÚMERO", help="Solo estos números de material"
+        "numeros", nargs="*", type=int, metavar="NÚMERO", help="Solo estos materiales (sus números)"
     )
+    parser.add_argument("--carpeta", help="Carpeta de destino de esta asignatura")
+    # the old spelling, still accepted: campus descargar aed --solo 3 5
+    parser.add_argument("--solo", type=int, nargs="+", help=argparse.SUPPRESS)
     parser.add_argument("--forzar", action="store_true", help="Vuelve a bajar lo ya descargado")
     parser.add_argument("--si", action="store_true", help="No preguntes antes de descargar")
 
@@ -759,26 +769,26 @@ def configure_abrir(parser: argparse.ArgumentParser) -> None:
 COMMANDS = [
     Command(
         "curso",
-        "Página de una asignatura: secciones y lo pendiente",
+        "Una asignatura por dentro: campus curso aed",
         run_curso,
         configure_curso,
         aliases=("ver",),
     ),
     Command(
         "materiales",
-        "Archivos y carpetas de una asignatura, con su número",
+        "Los archivos de una asignatura, numerados",
         run_materiales,
         configure_materiales,
     ),
     Command(
         "descargar",
-        "Descarga los materiales de una asignatura (pregunta antes)",
+        "Descarga sus archivos: campus descargar aed (o aed 3 5)",
         run_descargar,
         configure_descargar,
     ),
     Command(
         "abrir",
-        "Abre un curso o una página del Campus en el navegador",
+        "Abre una asignatura o página del Campus en el navegador",
         run_abrir,
         configure_abrir,
         aliases=("open",),

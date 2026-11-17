@@ -238,9 +238,28 @@ def test_news_forum_is_the_announcements_one():
 def test_announcements_of_every_course_unread_always_shown(capsys):
     code, output, _ = _run(capsys, "avisos", "-n", "2")
     assert code == 0 and "Novas" in output and "1 sen ler" in output
-    assert "Data do exame" in output and "campus debate 900" in output
+    assert "Data do exame" in output and "campus avisos <número>" in output
+    assert "campus debate" not in output  # no Moodle ids to type
+    row = next(line for line in output.splitlines() if "Data do exame" in line)
+    assert row.lstrip().startswith("1 ")  # the newest is number 1
     assert "Sen ler" in output  # unread: listed even beyond -n
     assert "Aviso vello 500" not in output and "máis" in output
+
+
+def test_an_announcement_is_read_by_its_number(capsys):
+    code, output, _ = _run(capsys, "avisos", "1")
+    assert code == 0 and "O exame será o día 20." in output and "Grazas." in output
+    code, output, _ = _run(capsys, "avisos", "redes", "1")  # numbered within one course
+    assert code == 0 and "O exame será o día 20." in output
+    code, _, error = _run(capsys, "avisos", "99")
+    assert code == 1 and "No hay aviso número 99" in error
+
+
+def test_a_forum_discussion_is_read_by_its_number(capsys):
+    code, output, _ = _run(capsys, "foros", "redes", "1")
+    assert code == 0 and "campus foros redes 1 <número>" in output
+    code, output, _ = _run(capsys, "foros", "redes", "1", "1")
+    assert code == 0 and "O exame será o día 20." in output
 
 
 def test_course_forums_and_their_discussions(capsys):

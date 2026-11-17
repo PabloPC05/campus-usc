@@ -103,6 +103,26 @@ def test_late_ones_with_a(capsys):
     assert code == 0 and "Práctica 2" in output and "Práctica 1 " not in output
 
 
+def test_late_ones_as_a_plain_word(capsys):
+    _, with_flag, _ = _run(capsys, "entregas", "-a")
+    code, with_word, _ = _run(capsys, "entregas", "atrasadas")
+    assert code == 0 and with_word == with_flag
+    code, output, _ = _run(capsys, "entregas", "redes", "atrasadas")  # with a course too
+    assert code == 0 and "Práctica 2" in output and "P3.3" not in output
+
+
+def test_entregar_alone_shows_the_numbered_list(capsys):
+    code, output, _ = _run(capsys, "entregar")
+    assert code == 0 and "Próximas entregas" in output
+    assert "campus entregar <número> ficheiro.pdf" in output
+
+
+def test_how_many_with_max_and_the_old_spelling(capsys):
+    for flag in ("-n", "--max", "--numero"):
+        _, output, _ = _run(capsys, "entregas", flag, "1")
+        assert "Práctica 3" in output and "P3.3" not in output, flag
+
+
 def test_course_filter_limit_and_window(capsys):
     _, output, _ = _run(capsys, "entregas", "ia")
     assert "P3.3" in output and "Práctica 3" not in output
