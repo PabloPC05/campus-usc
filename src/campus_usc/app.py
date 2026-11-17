@@ -28,8 +28,6 @@ VIEW_MODULES = (  # the order of `campus ayuda`: what a student uses most comes 
     "cursos",
     "curso",
     "calendario",
-    "horario",
-    "examenes",
 )
 _GLOBAL_FLAGS = {"--json": "json", "-f": "fresco", "--fresco": "fresco", "--sin-color": "no_color"}
 
@@ -44,6 +42,9 @@ def _commands() -> list[Command]:
                 continue
             raise
         found.extend(getattr(module, "COMMANDS", []))
+    from . import modulos
+
+    found.extend(modulos.commands())  # installed modules (campus modulos)
     found.extend(_builtin())
     return found
 
@@ -63,7 +64,7 @@ def _split_globals(argv: list[str]) -> tuple[dict[str, bool], list[str]]:
 
 
 def _sync(args: argparse.Namespace) -> int:
-    from datetime import date, timedelta
+    from datetime import date
 
     from . import sources
     from .style import GREEN, RED, paint
@@ -71,14 +72,10 @@ def _sync(args: argparse.Namespace) -> int:
 
     started = time.perf_counter()
     today = date.today()
-    keys = ["perfil", "cursos", "pendientes", "notificaciones"]
-    # The optional parts (usc.gal) only once you asked for them: see optional.py.
-    from . import optional
+    from . import modulos
 
-    if optional.enabled("horario"):
-        keys += [sources.horario_key(today), sources.horario_key(today + timedelta(days=7))]
-    if optional.enabled("examenes"):
-        keys.append(sources.examenes_key())
+    keys = ["perfil", "cursos", "pendientes", "notificaciones"]
+    keys += modulos.collect("actualizar_keys", today)  # installed modules add their data
     from . import store
     from .courses import current
     from .ui import course_title
@@ -359,12 +356,36 @@ def _estado(args: argparse.Namespace) -> int:
     return code
 
 
+def _modulos(args: argparse.Namespace) -> int:
+    """What can be added to campus and the one line that adds (or removes) it."""
+
+    from . import modulos
+    from .style import GREEN, bold, muted, paint
+    from .ui import block, navbar, out
+
+    installed = {module.name for module, _ in modulos.loaded()}
+    lines = [navbar(["Módulos"]), block("Módulos", "lo que no es o Campus", 0), ""]
+    for module in modulos.KNOWN:
+        on = module.name in installed
+        mark = paint("● instalado", GREEN, bold=True) if on else muted("○ sin instalar")
+        lines.append(f"  {bold(module.name)}  {mark}")
+        lines.append(f"    {module.summary}")
+        lines.append(muted(f"    Comandos: {module.commands}"))
+        wanted = installed - {module.name} if on else installed | {module.name}
+        verb = "Quitarlo" if on else "Añadirlo"
+        lines.append(muted(f"    {verb}:") + f" {modulos.install_command(wanted)}")
+        lines.append("")
+    out(lines)
+    return 0
+
+
 def _builtin() -> list[Command]:
     return [
         Command(
             "actualizar", "Descarga todo de nuevo y lo deja en caché", _sync, aliases=("sync",)
         ),
         Command("estado", "Comprueba la sesión y lo fresca que está la caché", _estado),
+        Command("modulos", "Lo que puedes añadir a campus (horario y exámenes)", _modulos),
         Command("limpiar", "Borra las cachés locales (CLI y motor)", _limpiar),
         Command(
             "login",
@@ -396,7 +417,9 @@ def _help(commands: list[Command]) -> None:
         "  " + bold("campus") + muted(" [orden] [opciones]   ·   sin orden abre el Taboleiro")
     )
     lines.append("")
-    optional_names = {"horario", "hoy", "mañana", "examenes"}
+    from . import modulos
+
+    from_modules = {command.name for command in modulos.commands()}
 
     def row(command: Command) -> str:
         name = f"  {paint(command.name.ljust(16), BLUE, bold=True)}"
@@ -406,12 +429,17 @@ def _help(commands: list[Command]) -> None:
             line = name + truncate(command.help, cells - width(name))
         return line
 
-    lines += [row(command) for command in commands if command.name not in optional_names]
-    lines += [
-        "",
-        muted("  Opcional · horario e exames, de usc.gal (a primeira vez tarda un pouco)"),
-    ]
-    lines += [row(command) for command in commands if command.name in optional_names]
+    lines += [row(command) for command in commands if command.name not in from_modules]
+    for module, _ in modulos.loaded():
+        lines += ["", muted(f"  Módulo {module.name} · {module.summary}")]
+        names = {name.strip() for name in module.commands.split(",")}
+        lines += [row(command) for command in commands if command.name in names]
+    missing = [module.name for module in modulos.KNOWN if not modulos.installed(module.name)]
+    if missing:
+        lines += [
+            "",
+            muted(f"  Módulos que puedes añadir: {', '.join(missing)}  ·  campus modulos"),
+        ]
     lines.append("")
     lines.append(
         muted("  Opciones comunes: --json  ·  -f/--fresco (ignora la caché)  ·  --sin-color")
@@ -426,7 +454,7 @@ def _help(commands: list[Command]) -> None:
 def main(argv: list[str] | None = None) -> None:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv[:1] == ["--refrescar"]:
-        from .sources import refresh_main
+        from .sources import refresh_main  # it loads the installed modules itself
 
         raise SystemExit(refresh_main(argv[1:]))
     flags, argv = _split_globals(argv)

@@ -122,7 +122,14 @@ def test_failed_fetch_falls_back_to_old_data(monkeypatch):
 
 
 def test_slow_sources_can_be_deferred(monkeypatch):
-    key = sources.horario_key()
+    async def never(service, param):
+        raise AssertionError("not fetched")
+
+    # A module's slow source (the timetable is one), registered as modules do.
+    monkeypatch.setitem(
+        sources.SOURCES, "lento", sources.Source("Lento", 60, 3600, never, slow=True)
+    )
+    key = "lento/x"
     monkeypatch.setattr(sources, "fetch_now", lambda *a, **k: pytest.fail("waited for slow"))
     monkeypatch.setattr(sources, "refresh_in_background", lambda keys: True)
     result = sources.load([key], defer_slow=True)[key]

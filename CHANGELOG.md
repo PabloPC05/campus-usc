@@ -60,10 +60,11 @@ Primera versión, separada de mcp-usc en su propio repositorio.
 - `campus salir`: cierra la sesión en el Campus, olvida la cuenta de Microsoft de la ventana de
   entrar y borra lo guardado (`--solo-aqui`: solo en este ordenador). En un Linux sin pantalla,
   `campus login` lo detecta y lleva a `--pegar`, que también lee la cookie de la entrada.
-- Horario y exámenes, opcionales: vienen de usc.gal, no del Campus, y su primera consulta tarda
-  uno o dos minutos. El Taboleiro, `actualizar` y el refresco en segundo plano no los tocan hasta
-  que pides `campus horario` o `campus examenes` una vez (`--ocultar` los quita); `hoy` enseña las
-  entregas y explica cómo añadir las clases; la ayuda los pone aparte.
+- Módulos instalables: el núcleo es el Campus; el horario y los exámenes (de usc.gal, cuya
+  primera consulta tarda uno o dos minutos) son el módulo `horarios`, que se instala con
+  `campus-usc[horarios]` y añade `horario`, `hoy`, `mañana` y `examenes`, las clases y los
+  exámenes del Taboleiro, los exámenes del calendario y su parte de `actualizar`.
+  `campus modulos` lista los módulos y da la línea para añadirlos o quitarlos.
 - Instantánea: cada pantalla se pinta en ~30 ms desde una caché local privada (0600, sin
   credenciales), con refresco en segundo plano de lo que está viejo, una sola sesión para todas las
   consultas de una pantalla y los bloques lentos del Taboleiro diferidos para no bloquearlo.

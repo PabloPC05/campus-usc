@@ -12,7 +12,7 @@ import importlib
 from datetime import date, datetime
 from typing import Any
 
-from .. import optional, sources
+from .. import modulos, sources
 from ..style import BLUE, GRAY, RED, WHITE, clip, muted, pad, paint, term_width
 from ..ui import block, empty, long_day
 from . import Command, show
@@ -109,37 +109,23 @@ def render(
     now = now or datetime.now()
     today = now.date()
     cells = term_width()
-    horario_key = sources.horario_key(today)
-    examenes_key = sources.examenes_key()
-    # Optional parts (usc.gal): only once you asked for them; otherwise empty results.
-    results = {
-        **{key: sources.Result(key) for key in (horario_key, examenes_key)},
-        **results,
-    }
-    with_timetable = optional.enabled("horario")
-    with_exams = optional.enabled("examenes")
     lines = _summary(results, profile, now)
 
-    # Hoxe (classes + deliveries) beside the month calendar, as on the Campus dashboard.
-    horario = _view("horario")
+    # Hoxe beside the month calendar, as on the Campus dashboard. Today's deliveries; an
+    # installed module (horarios) adds the classes.
     calendario = _view("calendario")
-    today_lines: list[str] = []
-    if horario is not None:
-        today_lines = horario.compact_today(
-            results[horario_key] if with_timetable else None,
-            results["pendientes"],
-            cells - _CALENDAR_CELLS - 3,
-            now=now,
-        )
-        if with_timetable and not results[horario_key].ok:
-            today_lines.append(_pending(results[horario_key]))
+    hoxe_cells = cells - _CALENDAR_CELLS - 3
+    today_lines = modulos.first("taboleiro_hoxe", results, results["pendientes"], hoxe_cells, now)
+    if today_lines is None:
+        today_lines = _deliveries_today(results["pendientes"], hoxe_cells, now)
     grid: list[str] = []
     if calendario is not None and cells >= 80:
+        extra = modulos.collect("calendar_entries", results)
         grid = calendario.month_grid(
             today.year,
             today.month,
             _deadline_days(results["pendientes"].data),
-            _exam_days(results[examenes_key].data),
+            calendario.by_day(extra),
             today,
         )
     left = [block("Hoxe", "", cells - _CALENDAR_CELLS - 3).lstrip("\n"), *today_lines]
@@ -169,12 +155,7 @@ def render(
                 "  " + paint(f"{hidden} atrasadas", RED) + muted("  ·  campus pendientes -a")
             )
 
-    examenes = _view("examenes") if with_exams else None
-    if examenes is not None:
-        lines.append(block("Próximos exames", "", cells))
-        lines.extend(examenes.compact_exams(results[examenes_key], cells, limit=3, now=now))
-        if not results[examenes_key].ok:
-            lines.append(_pending(results[examenes_key]))
+    lines.extend(modulos.collect("taboleiro_blocks", results, cells, now))
 
     cursos = _view("cursos")
     if cursos is not None:
@@ -184,11 +165,9 @@ def render(
     lines.append("")
     shortcuts = ["entregas", "notas", "avisos", "mensajes", "cursos", "ayuda"]
     lines.append(muted("  campus ") + muted(" · ").join(paint(name, BLUE) for name in shortcuts))
-    missing = [name for name in optional.FEATURES if not optional.enabled(name)]
-    if missing:
+    if not modulos.installed("horarios"):
         lines.append(
-            muted("  Opcional, de usc.gal: ")
-            + muted(" · ").join(paint(f"campus {name}", BLUE) for name in missing)
+            muted("  Horario e exames: un módulo opcional · ") + paint("campus modulos", BLUE)
         )
     return [line for line in lines if line is not None]
 
@@ -204,25 +183,27 @@ def _deadline_days(events: list[dict[str, Any]] | None) -> dict[date, int]:
     return days
 
 
-def _exam_days(data: dict[str, Any] | None) -> dict[date, int]:
-    from ..ui import parse_moment
+def _deliveries_today(pendientes: sources.Result, cells: int, now: datetime) -> list[str]:
+    """«Hoxe» without the timetable module: what you have to hand in today."""
 
-    days: dict[date, int] = {}
-    for subject in (data or {}).get("subjects") or []:
-        for call in subject.get("calls") or []:
-            moment = parse_moment(call.get("starts_at"))
-            if moment is not None:
-                days[moment.date()] = days.get(moment.date(), 0) + 1
-    return days
+    from ..ui import parse_moment
+    from .cronograma import item_lines
+
+    today = [
+        item
+        for item in (pendientes.data or [])
+        if (moment := parse_moment(item.get("sort_at"))) and moment.date() == now.date()
+    ]
+    if not pendientes.ok:
+        return [empty("Sen datos aínda: campus actualizar")]
+    if not today:
+        return [empty("Hoxe non tes entregas.")]
+    return [item_lines(item, cells, now=now)[0] for item in today[:6]]
 
 
 def run(args: argparse.Namespace) -> int:
     today = date.today()
-    keys = ["pendientes", "cursos", "notificaciones"]
-    if optional.enabled("horario"):
-        keys.append(sources.horario_key(today))
-    if optional.enabled("examenes"):
-        keys.append(sources.examenes_key())
+    keys = ["pendientes", "cursos", "notificaciones", *modulos.collect("taboleiro_keys", today)]
     profile: dict[str, Any] = {}
 
     def draw(results: dict[str, sources.Result], parsed: argparse.Namespace) -> list[str]:

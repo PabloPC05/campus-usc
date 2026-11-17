@@ -9,10 +9,10 @@ import json
 from datetime import date, datetime
 
 import pytest
+from campus_usc_horarios import horario
 
-from campus_usc import app, config, optional, sources, store
+from campus_usc import app, config, modulos, sources, store
 from campus_usc.style import caps, width
-from campus_usc.views import horario
 
 TODAY = datetime(2026, 11, 17, 11, 20)  # a Tuesday
 MONDAY = date(2026, 11, 16)
@@ -91,7 +91,7 @@ def env(tmp_path, monkeypatch):
     store.write("perfil", {"fullname": "Ana Prueba"})
     store.write("pendientes", [DELIVERY])
     store.write(WEEK_KEY, timetable(SESSIONS))
-    optional.enable("horario")  # these tests are about the (optional) timetable
+    modulos.reset()  # the installed module is found again in each test
     yield
     caps.reset()
 

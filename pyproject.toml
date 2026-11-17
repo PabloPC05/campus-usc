@@ -31,6 +31,10 @@ dependencies = ["mcp-usc[browser-auth] @ https://github.com/PabloPC05/mcp-usc/ar
 [project.optional-dependencies]
 # Kept so older install commands still work: the login browser is now always included.
 browser-auth = []
+# Installable modules (campus modulos). This one lives in modulos/horarios of this repo.
+horarios = [
+  "campus-usc-horarios @ https://github.com/PabloPC05/campus-usc/archive/refs/heads/main.zip#subdirectory=modulos/horarios",
+]
 dev = [
   "pytest>=8.4,<9",
   "ruff>=0.12,<1",

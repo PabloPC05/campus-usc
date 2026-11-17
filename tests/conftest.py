@@ -23,3 +23,15 @@ def _no_personal_profile(tmp_path_factory: pytest.TempPathFactory, monkeypatch) 
 
     missing = tmp_path_factory.mktemp("profile") / "perfil.json"
     monkeypatch.setattr(academic_profile, "default_profile_path", lambda: missing)
+
+
+@pytest.fixture(autouse=True)
+def _core_alone(monkeypatch):
+    """The core's tests see no installed module (modulos/horarios has its own tests)."""
+
+    from campus_usc import modulos
+
+    monkeypatch.setattr(modulos, "KNOWN", ())
+    modulos.reset()
+    yield
+    modulos.reset()

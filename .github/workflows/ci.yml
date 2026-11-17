@@ -34,14 +34,19 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install
-        run: uv sync --extra dev
+      - name: Install (with the horarios module from this checkout)
+        run: |
+          uv sync --extra dev
+          uv pip install -e modulos/horarios
 
       - name: Lint
-        run: uv run ruff check src tests && uv run ruff format --check src tests
+        run: uv run --no-sync ruff check src tests modulos && uv run --no-sync ruff format --check src tests modulos
 
-      - name: Test
-        run: uv run pytest
+      - name: Test the core
+        run: uv run --no-sync pytest tests
+
+      - name: Test the horarios module
+        run: uv run --no-sync pytest modulos/horarios/tests
 
       - name: Build package
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'

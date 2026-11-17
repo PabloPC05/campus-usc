@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "campus-usc-horarios"
+version = "0.1.0"
+description = "Módulo de campus-usc: horario de clases y fechas oficiales de examen, de usc.gal"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "PabloPC05" }]
+# It runs inside campus-usc, which installs it as the extra campus-usc[horarios]:
+# depending on campus-usc here would make the installer fetch the core twice.
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/campus_usc_horarios"]

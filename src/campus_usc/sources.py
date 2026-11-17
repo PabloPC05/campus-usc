@@ -61,14 +61,6 @@ async def _cursos(service: Any, _param: str) -> Any:
     return await service.list_courses(include_archived=True)
 
 
-async def _horario(service: Any, monday: str) -> Any:
-    return await service.get_my_subjects_timetable(date_in_week=monday or None)
-
-
-async def _examenes(service: Any, year: str) -> Any:
-    return await service.get_my_official_exam_schedule(year.replace("-", "/"))
-
-
 async def _contenidos(service: Any, course_id: str) -> Any:
     """Every activity of the course: Moodle hands them out 100 at a time."""
 
@@ -165,8 +157,6 @@ async def _cuestionario(service: Any, course_module_id: str) -> Any:
 SOURCES: dict[str, Source] = {
     "pendientes": Source("Cronograma", 10 * MINUTE, 12 * HOUR, _pendientes),
     "cursos": Source("Os meus cursos", 6 * HOUR, 30 * DAY, _cursos),
-    "horario": Source("Horario", 12 * HOUR, 14 * DAY, _horario, slow=True),
-    "examenes": Source("Exames", DAY, 60 * DAY, _examenes, slow=True),
     "contenidos": Source("Contido do curso", 30 * MINUTE, 7 * DAY, _contenidos),
     "notificaciones": Source("Notificacións", 5 * MINUTE, 6 * HOUR, _notificaciones),
     "perfil": Source("Perfil", 7 * DAY, 90 * DAY, _perfil),
@@ -363,6 +353,9 @@ def refresh_in_background(keys: list[str]) -> bool:
 def refresh_main(keys: list[str]) -> int:
     """Body of the background refresher."""
 
+    from . import modulos
+
+    modulos.loaded()  # installed modules register their data sources
     try:
         fetch_now([key for key in keys if split(key)[0] in SOURCES], quiet=True)
     finally:

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from .. import optional, sources
+from .. import modulos, sources
 from ..style import (
     BLUE,
     GRAY,
@@ -47,7 +47,6 @@ from ..ui import (
 )
 from . import Command, fail, show
 from .cronograma import activity_name
-from .examenes import Call, all_calls
 
 PINK = PURPOSE["assessment"]
 GRID = 28  # 7 cells of 4
@@ -181,22 +180,7 @@ def _deadline_entries(events: list[dict[str, Any]] | None) -> list[Entry]:
     return found
 
 
-def _exam_entry(call: Call) -> Entry:
-    span = f"{call.start:%H:%M}"
-    if call.end and call.end != call.start:
-        span += f"–{call.end:%H:%M}"
-    return Entry(
-        call.start,
-        "exam",
-        call.name,
-        call.course_id,
-        call.name,
-        span=span,
-        rooms=", ".join(call.rooms),
-    )
-
-
-def _by_day(entries: list[Entry]) -> dict[date, int]:
+def by_day(entries: list[Entry]) -> dict[date, int]:
     counts: dict[date, int] = {}
     for entry in entries:
         counts[entry.when.date()] = counts.get(entry.when.date(), 0) + 1
@@ -348,7 +332,7 @@ def render_month(
     year: int,
     month: int,
     events: list[dict[str, Any]] | None,
-    exam_data: dict[str, Any] | None,
+    extra: list[Entry] | None,
     cells: int,
     *,
     today: date | None = None,
@@ -358,8 +342,8 @@ def render_month(
     today = today or _today()
     now = now or datetime.combine(today, datetime.now().time())
     deliveries = _deadline_entries(events)
-    exam_entries = [_exam_entry(call) for call in all_calls(exam_data)]
-    grid = month_grid(year, month, _by_day(deliveries), _by_day(exam_entries), today)
+    exam_entries = list(extra or [])  # from installed modules (exam dates)
+    grid = month_grid(year, month, by_day(deliveries), by_day(exam_entries), today)
     in_month = sorted(
         (
             entry
@@ -401,16 +385,15 @@ def run(args: argparse.Namespace) -> int:
         return fail(
             f"Mes no válido: «{args.mes}». Usa 12, 2026-12, +1, -1 o un nombre (xan, dic…)."
         )
-    exams_key = sources.examenes_key(sources.academic_year(today))
-    keys = ["pendientes", exams_key] if optional.enabled("examenes") else ["pendientes"]
+    keys = ["pendientes", *modulos.collect("calendar_keys", today)]
 
     def render(results: dict[str, sources.Result], _args: argparse.Namespace) -> list[str]:
-        pending, exams = results["pendientes"], results.get(exams_key, sources.Result(exams_key))
+        pending = results["pendientes"]
         return render_month(
             year,
             month,
             pending.data if pending.ok else None,
-            exams.data if exams.ok else None,
+            modulos.collect("calendar_entries", results),
             term_width(),
             today=today,
             now=_now(),
@@ -418,26 +401,17 @@ def run(args: argparse.Namespace) -> int:
         )
 
     def payload(results: dict[str, sources.Result]) -> Any:
-        pending, exams = results["pendientes"], results.get(exams_key, sources.Result(exams_key))
+        pending = results["pendientes"]
         in_month = [
             item
             for item in pending.data or []
             if (moment := parse_moment(item.get("sort_at")))
             and (moment.year, moment.month) == (year, month)
         ]
-        calls = [
-            {
-                "subject_code": call.code,
-                "course_id": call.course_id,
-                "course_name": call.name,
-                "starts_at": call.start.isoformat(),
-                "ends_at": call.end.isoformat() if call.end else None,
-                "rooms": list(call.rooms),
-            }
-            for call in all_calls(exams.data)
-            if (call.start.year, call.start.month) == (year, month)
-        ]
-        return {"month": f"{year}-{month:02d}", "deadlines": in_month, "exams": calls}
+        found: dict[str, Any] = {"month": f"{year}-{month:02d}", "deadlines": in_month}
+        for extra in modulos.collect("calendar_json", results, year, month):
+            found.update(extra)
+        return found
 
     return show(args, keys, render, ["Taboleiro", "Calendario"], json_payload=payload)
 

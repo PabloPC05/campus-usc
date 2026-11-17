@@ -31,12 +31,11 @@ campus estado             # sesión y frescura de la caché · campus ayuda para
 Las asignaturas se indican por alias, código, número o nombre (`ia`, `soi`, `asr`, `redes`,
 `G4012224`). Todo acepta `--json`, `-f` para ignorar la caché y `--sin-color`.
 
-### Opcional: horario y exámenes
+### Módulo opcional: horario y exámenes
 
 El horario de clases y las fechas oficiales de examen no son del Campus: son páginas públicas de
 usc.gal, y la primera vez hay que localizar tus asignaturas en los planes de estudio, lo que tarda
-uno o dos minutos. Por eso no se cargan solos: el Taboleiro y `campus actualizar` no los tocan
-hasta que los pides una vez.
+uno o dos minutos. Por eso son un módulo aparte, `horarios`, que solo instala quien lo quiere:
 
 ```sh
 campus horario            # tu semana en rejilla (+1 la siguiente, --grupos CLE_01 CLIL_02 --guardar-grupos)
@@ -44,8 +43,9 @@ campus hoy                # clases y entregas de hoy, con lo que tienes «agora�
 campus examenes           # fechas oficiales, con cuenta atrás
 ```
 
-Desde la primera vez que usas `campus horario` (o `campus examenes`), sale también en el
-Taboleiro y se pone al día con `campus actualizar`. `campus horario --ocultar` lo quita otra vez.
+Con el módulo instalado, el Taboleiro enseña también las clases de hoy y los próximos exámenes,
+el calendario marca los exámenes y `campus actualizar` los pone al día. `campus modulos` dice qué
+módulos hay y la línea exacta para añadirlos o quitarlos.
 
 ## Instalación
 
@@ -55,6 +55,9 @@ Dos pasos, una sola vez. En Mac o Linux, abre la app Terminal y pega:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install "campus-usc @ https://github.com/PabloPC05/campus-usc/archive/refs/heads/main.zip"
 ```
+
+Para tener también el horario y los exámenes, la segunda línea con `campus-usc[horarios]` en vez
+de `campus-usc`.
 
 En Windows, abre PowerShell y pega:
 
@@ -185,8 +188,9 @@ notificación.
 
 ```sh
 uv sync --extra dev
-uv run pytest
-uv run ruff check src tests && uv run ruff format --check src tests
+uv pip install -e modulos/horarios          # el módulo, editable
+uv run --no-sync pytest tests modulos/horarios/tests
+uv run --no-sync ruff check src tests modulos
 ```
 
 El motor se instala desde el zip de `main` de mcp-usc. Cuando cambia, `uv` avisa de que el hash
