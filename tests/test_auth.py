@@ -28,6 +28,7 @@ def engine(monkeypatch):
     monkeypatch.setattr("mcp_usc.campus.renew_session_silently", renew)
     monkeypatch.setattr("mcp_usc.campus.interactive_login", window)
     monkeypatch.setattr(auth, "available", lambda: True)
+    monkeypatch.setattr(auth, "has_screen", lambda: True)  # CI runners have no display
     monkeypatch.setattr(auth, "_settings", lambda: object())
     return fake
 
@@ -79,3 +80,10 @@ def test_no_login_when_disabled(monkeypatch):
     monkeypatch.setattr(sources, "_fetch_all", fake_fetch_all)
     monkeypatch.setattr(auth, "ensure", lambda interactive: pytest.fail("no debía entrar"))
     assert sources.fetch_now(["cursos"], quiet=True)["cursos"].login_needed
+
+
+def test_without_a_screen_only_the_silent_way_is_tried(engine, capsys, monkeypatch):
+    monkeypatch.setattr(auth, "has_screen", lambda: False)
+    assert auth.ensure(interactive=True) is False
+    assert engine.calls == ["silent"]  # no window could ever open
+    assert "campus login --pegar" in capsys.readouterr().err

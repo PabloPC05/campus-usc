@@ -44,6 +44,7 @@ def test_login_is_silent_when_the_browser_remembers_you(capsys, monkeypatch):
 
     windows = []
     monkeypatch.setattr(auth, "available", lambda: True)
+    monkeypatch.setattr(auth, "has_screen", lambda: True)
     monkeypatch.setattr(auth, "silent", lambda settings=None: True)
     monkeypatch.setattr(auth, "window", lambda *a, **k: windows.append(a))
     monkeypatch.setattr(auth, "_settings", lambda: object())
@@ -62,6 +63,7 @@ def test_login_opens_the_window_when_microsoft_needs_you(capsys, monkeypatch):
         return {"authenticated": True}
 
     monkeypatch.setattr(auth, "available", lambda: True)
+    monkeypatch.setattr(auth, "has_screen", lambda: True)
     monkeypatch.setattr(auth, "silent", lambda settings=None: False)
     monkeypatch.setattr(auth, "_settings", lambda: object())
     monkeypatch.setattr("mcp_usc.campus.interactive_login", fake_login)
@@ -131,6 +133,8 @@ def test_no_screen_points_to_pegar(capsys, monkeypatch):
 
     monkeypatch.setattr(auth, "available", lambda: True)
     monkeypatch.setattr(auth, "has_screen", lambda: False)
+    monkeypatch.setattr(auth, "silent", lambda settings=None: False)
+    monkeypatch.setattr(auth, "_settings", lambda: object())
     code, _, error = _run(capsys, "login")
     assert code == 1 and "campus login --pegar" in error and "SSH" in error
 
