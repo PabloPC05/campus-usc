@@ -161,6 +161,8 @@ def _login_window(args: argparse.Namespace) -> int:
             "Falta el navegador del login: reinstala campus-usc "
             "o entra con tu navegador: campus login --pegar"
         )
+    if not auth.has_screen():
+        return fail(auth.NO_SCREEN)
     return 0 if auth.ensure(interactive=True, minutes=args.minutos) else 1
 
 
@@ -190,9 +192,10 @@ def _login_paste(args: argparse.Namespace) -> int:
             "",
         ]
     )
-    if not sys.stdin.isatty():
-        return fail("Esto necesita una terminal para pegar la cookie sin que se vea.")
-    cookie = _secret("  MoodleSession: ").strip()
+    if sys.stdin.isatty():
+        cookie = _secret("  MoodleSession: ").strip()
+    else:  # piped in, like `docker login --password-stdin`: never echoed
+        cookie = sys.stdin.readline().strip()
     if not cookie:
         return fail("No pegaste nada; no se cambió la sesión.")
     try:
@@ -224,6 +227,78 @@ def _login(args: argparse.Namespace) -> int:
         + muted("  ·  campus actualizar lo deja todo listo")
     )
     return 0
+
+
+def _salir(args: argparse.Namespace) -> int:
+    """Close the session: on the Campus itself, and everything remembered on this computer."""
+
+    import asyncio
+    import shutil
+    from pathlib import Path
+
+    from . import store
+    from .style import AMBER, GREEN, bold, muted, paint
+    from .ui import navbar, out
+    from .views import fail
+
+    def done(text: str) -> str:
+        return "  " + paint("✓", GREEN, bold=True) + " " + text
+
+    out([navbar(["Saír"]), ""])
+    settings = _new_settings()
+    lines: list[str] = []
+    if args.solo_aqui:
+        from mcp_usc.session_auth import forget_session_cookie
+
+        try:
+            forget_session_cookie()
+        except Exception as exc:  # noqa: BLE001 - shown to the person
+            return fail(f"No pude borrar la sesión de este ordenador: {exc}")
+        lines.append(done("Sesión olvidada en este ordenador (en el Campus sigue abierta)."))
+    else:
+        from mcp_usc.session_auth import end_campus_session
+
+        try:
+            result = asyncio.run(end_campus_session(settings))
+        except Exception as exc:  # noqa: BLE001
+            return fail(f"No pude cerrar la sesión: {exc}")
+        remote = result.get("remote_logout")
+        if remote is True:
+            lines.append(
+                done("Sesión cerrada en el Campus: esa sesión ya no vale en ningún sitio.")
+            )
+        elif remote is False:
+            lines.append(done("La sesión ya estaba cerrada o caducada en el Campus."))
+        else:
+            lines.append(
+                "  "
+                + paint("!", AMBER, bold=True)
+                + " No pude avisar al Campus; la sesión caducará sola en unas horas."
+            )
+        lines.append(done("Sesión olvidada en este ordenador."))
+        if result.get("environment_session_kept"):
+            lines.append(
+                "  "
+                + paint("!", AMBER, bold=True)
+                + " Sigue definida USC_MOODLE_SESSION en tu entorno: bórrala tú."
+            )
+    profile = Path(settings.browser_profile_dir)
+    if profile.exists():
+        shutil.rmtree(profile, ignore_errors=True)
+        lines.append(done("La ventana de entrar ya no recuerda tu cuenta de Microsoft."))
+    removed = store.clear()
+    if removed:
+        lines.append(done(f"Borrados {removed} datos guardados (notas, mensajes, tareas…)."))
+    out(lines + ["", muted("  Para volver a entrar: ") + bold("campus login")])
+    return 0
+
+
+def _configure_salir(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--solo-aqui",
+        action="store_true",
+        help="Olvida la sesión en este ordenador sin cerrarla en el Campus",
+    )
 
 
 def _configure_login(parser: argparse.ArgumentParser) -> None:
@@ -299,6 +374,13 @@ def _builtin() -> list[Command]:
             _login,
             _configure_login,
             aliases=("acceder",),
+        ),
+        Command(
+            "salir",
+            "Cierra la sesión y borra lo guardado en este ordenador",
+            _salir,
+            _configure_salir,
+            aliases=("logout", "cerrar-sesion"),
         ),
     ]
 

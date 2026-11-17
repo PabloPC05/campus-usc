@@ -27,6 +27,7 @@ campus foros redes        # los foros de una asignatura; «campus debate 420773�
 campus mensajes           # mensajes privados por persona; «campus escribir 2 "…"» responde
 campus cuestionarios ia   # sus cuestionarios; «campus cuestionarios ia 1» fechas, intentos y nota
 campus abrir redes        # abre la asignatura en el navegador
+campus salir              # cierra la sesión y borra lo guardado en este ordenador
 campus estado             # sesión y frescura de la caché · campus ayuda para todo lo demás
 ```
 
@@ -64,6 +65,15 @@ renueva solo, sin ventana, en unos segundos: la ventana de entrar recuerda tu cu
 cualquier navegador. Solo vuelve a aparecer si Microsoft te pide algo nuevo, por ejemplo después
 de cambiar la contraseña. `campus login` hace lo mismo cuando quieras. Se guarda la cookie de
 sesión del Campus en el llavero del sistema, nunca tu contraseña.
+
+Para cerrar sesión, `campus salir`: la cierra en el propio Campus (esa sesión deja de valer en
+cualquier sitio), hace que la ventana de entrar olvide tu cuenta de Microsoft y borra tus datos
+guardados en este ordenador. Úsalo siempre en un ordenador que no sea tuyo. Con `--solo-aqui` la
+olvida en este ordenador sin cerrarla en el Campus.
+
+En un Linux sin escritorio (un servidor o una máquina virtual por SSH) no se puede abrir la
+ventana: `campus login --pegar` te deja entrar con el navegador de otro equipo. Como esos sistemas
+no tienen llavero, la sesión se guarda en un archivo privado que solo puede leer tu usuario.
 
 ¿Por qué una ventana y no un enlace, como en otras apps? En Moodle eso es el inicio de sesión de
 la app móvil, y la USC lo tiene desactivado (`enablemobilewebservice = 0`). Además, la cookie del

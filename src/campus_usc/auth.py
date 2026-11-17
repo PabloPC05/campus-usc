@@ -33,6 +33,22 @@ INTRO = (
 )
 
 
+NO_SCREEN = (
+    "Este ordenador no tiene pantalla para la ventana de entrar (¿estás por SSH?). "
+    "Entra desde el navegador de otro equipo y pega la sesión: campus login --pegar"
+)
+
+
+def has_screen() -> bool:
+    """Whether a login window can open here (a Linux server over SSH has no display)."""
+
+    import os
+
+    if sys.platform.startswith("linux"):
+        return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+    return True
+
+
 def available() -> bool:
     """Whether the login browser (Playwright) is installed with the engine."""
 
@@ -110,6 +126,9 @@ def ensure(*, interactive: bool, minutes: int = 15) -> bool:
             if spinner:
                 spinner.stop()
     if not interactive:
+        return False
+    if not has_screen():
+        _say("  " + NO_SCREEN)
         return False
     for line in INTRO:
         _say(line)
