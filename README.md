@@ -149,6 +149,9 @@ uv run pytest
 uv run ruff check src tests && uv run ruff format --check src tests
 ```
 
+El motor se instala desde el zip de `main` de mcp-usc. Cuando cambia, `uv` avisa de que el hash
+no coincide: `uv lock --upgrade-package mcp-usc` lo pone al día (el `uv.lock` no se sube).
+
 Para probar a la vez cambios del motor, con mcp-usc clonado al lado:
 `uv pip install -e ../mcp-usc`, y luego `.venv/bin/python -m pytest`, porque `uv run` vuelve a
 instalar el de GitHub. Las pruebas usan solo datos inventados y nunca tocan la red.
