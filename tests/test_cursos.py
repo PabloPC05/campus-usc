@@ -86,6 +86,16 @@ def _plain_terminal(tmp_path, monkeypatch):
                 "course_id": 201,
                 "course_name": COURSES[0]["full_name"],
                 "sort_at": (now - timedelta(days=2)).astimezone().isoformat(),
+                "actionable": True,  # late, still takes it
+                "url": "https://cv.usc.es/mod/assign/view.php?id=21",
+            },
+            {
+                "name": "Práctica de outro grupo pendente de entrega",
+                "module": "assign",
+                "course_id": 201,
+                "course_name": COURSES[0]["full_name"],
+                "sort_at": (now - timedelta(days=5)).astimezone().isoformat(),
+                "actionable": False,  # closed: no longer something to do
             },
         ],
     )
@@ -256,3 +266,63 @@ def test_dashboard_course_block(capsys):
     )
     text = "\n".join(lines)
     assert "Redes" in text and "redes" in text and "Cálculo" not in text
+
+
+def test_course_page_badges_each_pending_task(capsys):
+    code, output, _ = _run(capsys, "curso", "redes")
+    row = next(line for line in output.splitlines() if "Práctica 3" in line and "Atrasada" in line)
+    assert "Tarefa" not in row  # the badge says more than the kind
+    assert "1 atrasada sen entregar" in " ".join(output.split())
+
+
+def test_closed_overdue_tasks_are_not_to_do(capsys):
+    code, output, _ = _run(capsys, "pendientes", "-a")
+    closed = next(line for line in output.splitlines() if "outro grupo" in line)
+    assert "pechada" in closed
+    code, output, _ = _run(capsys, "pendientes")
+    assert "1 atrasada sin entregar" in " ".join(output.split())
+
+
+def test_every_page_of_a_long_course_is_kept():
+    import asyncio
+
+    class Service:
+        async def list_course_contents(self, course_id, section, offset, limit):
+            total = 230
+            items = [{"module_id": n} for n in range(offset, min(offset + limit, total))]
+            return {
+                "items": items,
+                "has_more": offset + limit < total,
+                "next_offset": offset + limit,
+                "total_count": total,
+            }
+
+    data = asyncio.run(sources.SOURCES["contenidos"].fetch(Service(), "201"))
+    assert len(data["items"]) == 230 and data["has_more"] is False
+    assert data["items"][-1]["module_id"] == 229
+
+
+def test_labels_show_the_teachers_text(capsys):
+    long = "Profesorado. Ana Proba: catedrática e coordinadora da materia. " * 6
+    items = [dict(CONTENTS["items"][0])]
+    items.append(
+        {
+            "section_number": 0,
+            "section_name": "Xeral",
+            "module_id": 5,
+            "module_type": "label",
+            "module_type_label": "Etiqueta",
+            "name": "ProfesoradoAna...",
+            "description": long,
+            "visible": True,
+        }
+    )
+    store.write("contenidos/201", {"items": items + CONTENTS["items"][1:], "has_more": False})
+    code, output, _ = _run(capsys, "curso", "redes")
+    text = " ".join(output.split())
+    assert code == 0 and "Ana Proba: catedrática e coordinadora" in text
+    assert "ProfesoradoAna" not in text
+    label_rows = [
+        line for line in output.splitlines() if "coordinadora" in line or "Profesorado." in line
+    ]
+    assert 1 < len(label_rows) <= 4

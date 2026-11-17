@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import sources, store
+from ..auth import SessionExpired, run_with_session
 from ..courses import CourseNotFound, course_year, current, find
 from ..style import (
     AMBER,
@@ -42,6 +43,7 @@ from ..ui import (
     CAMPUS_URL,
     activity_icon,
     block,
+    countdown,
     course_alias,
     course_chip,
     course_code,
@@ -63,6 +65,7 @@ _SPACES = re.compile(r"\s+")
 _YES = {"s", "si", "sí", "y", "yes"}
 _PENDING_DAYS = 30
 _PENDING_ROWS = 6
+_LABEL_ROWS = 4
 
 # What ``campus abrir <destino>`` knows: the Campus's own pages.
 PAGES: dict[str, tuple[str, str]] = {
@@ -187,13 +190,55 @@ def _kind_tag(item: dict[str, Any]) -> str:
     return muted(" · ").join(part for part in parts if part)
 
 
-def activity_lines(item: dict[str, Any], cells: int) -> list[str]:
+_CMID = re.compile(r"[?&]id=(\d+)")
+
+
+def pending_by_module(events: list[dict[str, Any]] | None) -> dict[int, dict[str, Any]]:
+    """The Cronograma entry of each activity that still asks something of you."""
+
+    found: dict[int, dict[str, Any]] = {}
+    for event in events or []:
+        match = _CMID.search(str(event.get("url") or event.get("action_url") or ""))
+        if match:
+            found.setdefault(int(match.group(1)), event)
+    return found
+
+
+def _pending_badge(event: dict[str, Any] | None, now: datetime | None = None) -> str:
+    """«Pendente · en 2 días», «Atrasada», «Pechada»… like the Campus marks it."""
+
+    if not event:
+        return ""
+    now = now or datetime.now()
+    moment = parse_moment(event.get("sort_at") or event.get("starts_at"))
+    if moment is None:
+        return ""
+    if moment < now:
+        if not event.get("actionable"):
+            return muted("pechada")
+        return paint(" Atrasada ", WHITE, RED, bold=True)
+    if not event.get("actionable"):
+        return muted("aínda non aberta")
+    left, tone = countdown(moment, now)
+    return paint(" Pendente ", WHITE, BLUE, bold=True) + " " + paint(left, tone)
+
+
+def activity_lines(
+    item: dict[str, Any], cells: int, pending: dict[str, Any] | None = None
+) -> list[str]:
     module = item.get("module_type")
     icon = activity_icon(module)
     if module == "label":
+        # The teacher's own text, as the course page shows it (up to four lines here).
+        import textwrap
+
         text = clean_text(item.get("description")) or clean_text(item.get("name"))
-        return ["  " + icon + " " + muted(truncate(text, cells - 8))]
-    tag = _kind_tag(item)
+        rows = textwrap.wrap(text, max(20, cells - 8)) or [""]
+        if len(rows) > _LABEL_ROWS:
+            rows = rows[:_LABEL_ROWS]
+            rows[-1] = truncate(rows[-1] + " …", cells - 8)
+        return ["  " + icon + " " + muted(rows[0])] + ["     " + muted(row) for row in rows[1:]]
+    tag = _pending_badge(pending) or _kind_tag(item)
     name = clean_text(item.get("name")) or "(sen nome)"
     name_cells = max(8, cells - 2 - 3 - 1 - width(tag) - 2)
     shown = link(bold(truncate(name, name_cells)), item.get("activity_url") or item.get("url"))
@@ -252,7 +297,7 @@ def pending_lines(
         if moment is None:
             continue
         if moment < now:
-            overdue += 1
+            overdue += 1 if event.get("actionable") else 0
         elif (moment - now).days <= _PENDING_DAYS:
             upcoming.append((moment, event))
     lines = [block("Pendente", f"Próximos {_PENDING_DAYS} días", cells)]
@@ -313,10 +358,11 @@ def render_course(
             empty(f"Ningunha sección coincide con «{seccion}»."),
             muted("  " + truncate(f"Seccións: {names}", cells - 2)),
         ]
+    by_module = pending_by_module(pendientes.data if pendientes is not None else None)
     for _, name, members in chosen:
         lines += ["", section_heading(name, len(members), color, cells)]
         for item in members:
-            lines.extend(activity_lines(item, cells))
+            lines.extend(activity_lines(item, cells, by_module.get(item.get("module_id"))))
     data = contents.data or {}
     if data.get("has_more"):
         lines += [
@@ -527,7 +573,7 @@ async def _download(course: dict[str, Any], args: argparse.Namespace) -> int:
     try:
         plan = await service.course_download_plan(course["id"], args.solo or None)
     except AuthenticationRequired:
-        return fail("La sesión del Campus caducó: ejecuta `campus login`.")
+        raise SessionExpired from None  # nothing downloaded yet: renew and start again
     except (CampusError, ValueError) as exc:
         return fail(str(exc))
     folder = Path(args.carpeta).expanduser() if args.carpeta else plan["folder"]
@@ -614,7 +660,10 @@ def run_descargar(args: argparse.Namespace) -> int:
     if course is None:
         return 1
     try:
-        return asyncio.run(_download(course, args))
+        return run_with_session(
+            lambda: asyncio.run(_download(course, args)),
+            interactive=_interactive() and not args.json,
+        )
     except KeyboardInterrupt:
         fail("Descarga interrumpida; lo ya bajado queda en la carpeta.")
         return 130

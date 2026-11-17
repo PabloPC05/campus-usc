@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 import textwrap
 import time
 from datetime import datetime
@@ -212,12 +213,23 @@ def run_one(args: argparse.Namespace) -> int:
     if args.marcar_leida and not item.get("read"):
         from mcp_usc.campus import AuthenticationRequired, CampusError
 
+        from ..auth import SessionExpired, run_with_session
+
+        outcome: dict[str, Any] = {}
+
+        def attempt() -> int:
+            try:
+                outcome["marked"] = asyncio.run(mark_read(item["id"]))
+            except AuthenticationRequired:
+                raise SessionExpired from None
+            return 0
+
         try:
-            marked = asyncio.run(mark_read(item["id"]))
-        except AuthenticationRequired:
-            return fail("La sesión del Campus caducó: ejecuta `campus login`.")
+            if run_with_session(attempt, interactive=sys.stdin.isatty() and not args.json):
+                return 1
         except (CampusError, ValueError, KeyError) as exc:
             return fail(f"No pude marcarla como leída: {exc}")
+        marked = outcome["marked"]
         if marked.get("outcome") == "reported_by_moodle":
             _remember_read(loaded.data, item.get("id"))
             item = {**item, "read": True}

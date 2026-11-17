@@ -303,3 +303,24 @@ def test_screens_fit_the_terminal(capsys, service, upload, monkeypatch, columns)
     for argv in (["aed"], ["aed", "1"], ["aed", "1", str(upload), "--si"]):
         _, output, _ = _run(capsys, "entregar", *argv)
         assert max(style.width(line) for line in output.splitlines()) <= int(columns), argv
+
+
+def test_expired_session_is_renewed_before_anything_changes(capsys, service, upload, monkeypatch):
+    from mcp_usc.campus import AuthenticationRequired
+
+    from campus_usc import auth
+
+    original = service.inspect_submission_status
+    expired = {"once": True}
+
+    async def inspect_once_expired(cmid, token):
+        if expired.pop("once", False):
+            raise AuthenticationRequired("caducó")
+        return await original(cmid, token)
+
+    renewals = []
+    monkeypatch.setattr(service, "inspect_submission_status", inspect_once_expired)
+    monkeypatch.setattr(auth, "ensure", lambda interactive: renewals.append(interactive) or True)
+    code, output, _ = _run(capsys, "entregar", "aed", "1", str(upload), "--si")
+    assert code == 0 and renewals == [False]
+    assert service.writes() == ["replace"] and "✓ Subido" in output

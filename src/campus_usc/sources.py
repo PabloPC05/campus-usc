@@ -54,7 +54,7 @@ class Result:
 
 
 async def _pendientes(service: Any, _param: str) -> Any:
-    return await service.list_events(days=60, include_overdue=True, course_ids=None, limit=50)
+    return await service.list_events(days=60, include_overdue=True, course_ids=None, limit=200)
 
 
 async def _cursos(service: Any, _param: str) -> Any:
@@ -70,7 +70,18 @@ async def _examenes(service: Any, year: str) -> Any:
 
 
 async def _contenidos(service: Any, course_id: str) -> Any:
-    return await service.list_course_contents(int(course_id), None, 0, 100)
+    """Every activity of the course: Moodle hands them out 100 at a time."""
+
+    items: list[Any] = []
+    offset, page = 0, {}
+    for _ in range(50):  # 5000 activities is more than any course has
+        page = await service.list_course_contents(int(course_id), None, offset, 100)
+        batch = page.get("items") or []
+        items.extend(batch)
+        if not page.get("has_more") or not batch:
+            break
+        offset = int(page.get("next_offset") or offset + len(batch))
+    return {**page, "items": items, "offset": 0, "returned": len(items), "has_more": False}
 
 
 async def _notificaciones(service: Any, _param: str) -> Any:

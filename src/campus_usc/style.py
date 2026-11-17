@@ -218,6 +218,39 @@ def truncate(text: str, cells: int, ellipsis: str = "…") -> str:
     return "".join(out).rstrip() + ellipsis
 
 
+_PIECES = re.compile(r"(\x1b\[[0-9;]*m|\x1b\]8;[^\x1b]*\x1b\\)")
+_LINK_END = "\x1b]8;;\x1b\\"
+
+
+def clip(text: str, cells: int, ellipsis: str = "…") -> str:
+    """A styled ``text`` cut to ``cells`` columns, keeping its colours and links whole."""
+
+    if width(text) <= cells:
+        return text
+    out: list[str] = []
+    used, limit, link_open = 0, max(0, cells - width(ellipsis)), False
+    for piece in _PIECES.split(text):
+        if not piece:
+            continue
+        if _PIECES.fullmatch(piece):
+            out.append(piece)
+            if piece.startswith("\x1b]8;"):
+                link_open = piece != _LINK_END
+            continue
+        for char in piece:
+            size = _char_width(char)
+            if used + size > limit:
+                out.append(ellipsis)
+                if link_open:
+                    out.append(_LINK_END)
+                if "\x1b[" in text:
+                    out.append("\x1b[0m")
+                return "".join(out)
+            out.append(char)
+            used += size
+    return "".join(out)
+
+
 def pad(text: str, cells: int, align: str = "<") -> str:
     """Pad a (possibly styled) string to ``cells`` columns."""
 

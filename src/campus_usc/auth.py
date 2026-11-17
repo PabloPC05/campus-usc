@@ -123,4 +123,22 @@ def ensure(*, interactive: bool, minutes: int = 15) -> bool:
     return True
 
 
-__all__ = ["available", "ensure", "silent", "window"]
+class SessionExpired(Exception):
+    """The Campus asked for a login before anything was changed: safe to run again."""
+
+
+def run_with_session(attempt: Any, *, interactive: bool) -> int:
+    """``attempt()``; if it raises :class:`SessionExpired`, get in and try once more."""
+
+    from .views import fail
+
+    for tries in range(2):
+        try:
+            return attempt()
+        except SessionExpired:
+            if tries or not ensure(interactive=interactive):
+                break
+    return fail("La sesión del Campus caducó y no se pudo renovar: prueba `campus login`.")
+
+
+__all__ = ["SessionExpired", "available", "ensure", "run_with_session", "silent", "window"]

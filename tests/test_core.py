@@ -236,3 +236,18 @@ def test_dashboard_opens_without_waiting_for_slow_blocks(capsys, monkeypatch):
     assert "Taboleiro" in output and "Ana" in output
     assert "Práctica 3" in output
     assert "2 notificacións sen ler" in " ".join(output.split())
+
+
+def test_clip_keeps_colours_and_links_whole(monkeypatch):
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    style.caps.reset()
+    try:
+        text = style.paint("agora", "#357a32") + " " + style.link("quedan 2 h 47 min", "https://x")
+        cut = style.clip(text, 10)
+        assert style.width(cut) == 10 and style.strip(cut).endswith("…")
+        assert cut.count("\x1b]8;") % 2 == 0  # the link is closed
+        assert cut.endswith("\x1b[0m")
+        assert style.clip("curto", 10) == "curto"
+    finally:
+        style.caps.reset()

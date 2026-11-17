@@ -65,7 +65,8 @@ def pending_by_course(
             int(course_id), {"overdue": 0, "upcoming": 0, "soon": 0, "next": None}
         )
         if moment < now:
-            entry["overdue"] += 1
+            if event.get("actionable"):  # still takes the late work
+                entry["overdue"] += 1
             continue
         entry["upcoming"] += 1
         if (moment - now).total_seconds() <= 3 * 86400:

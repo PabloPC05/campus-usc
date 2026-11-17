@@ -28,6 +28,18 @@ Primera versión, separada de mcp-usc en su propio repositorio.
   las atrasadas que aún admiten entrega, aparte (`-a`).
 - Instalable sin git desde GitHub en dos pasos; el comando también se llama `campus-usc`.
 - README con medidas de velocidad frente a un asistente con MCP y la web del Campus.
+- Revisado contra la web del Campus, asignatura por asignatura:
+  - los cursos con más de 100 actividades salen enteros (a IA le faltaban 46), y el Cronograma
+    se pide completo aunque pase de 50 eventos;
+  - «atrasadas» son solo las que aún admiten entrega: las cerradas (sobre todo prácticas de
+    otros grupos) ya no inflan los avisos y con `-a` salen en gris como «pechada»;
+  - en la página de un curso, cada tarea pendiente lleva su aviso («Pendente · en 2 días»,
+    «Atrasada», «pechada»);
+  - las etiquetas muestran el texto del profesor, no el nombre recortado de Moodle;
+  - si la sesión caduca justo al entregar, descargar o marcar una notificación, se renueva y
+    el comando sigue;
+  - `descargar` probado de verdad (un PDF de un curso pasado) y ninguna pantalla se pasa de
+    80 columnas.
 - Instantánea: cada pantalla se pinta en ~30 ms desde una caché local privada (0600, sin
   credenciales), con refresco en segundo plano de lo que está viejo, una sola sesión para todas las
   consultas de una pantalla y los bloques lentos del Taboleiro diferidos para no bloquearlo.

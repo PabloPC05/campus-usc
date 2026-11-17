@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import sources, store
+from ..auth import SessionExpired, run_with_session
 from ..style import AMBER, BLUE, GREEN, RED, WHITE, bold, muted, paint, term_width, truncate
 from ..ui import (
     activity_icon,
@@ -306,7 +307,7 @@ async def _hand_in(
     try:
         before = _state(await inspect(service, cmid))
     except AuthenticationRequired:
-        return fail("La sesión del Campus caducó: ejecuta `campus login`.")
+        raise SessionExpired from None  # nothing changed yet: renew and start again
     except (CampusError, ValueError) as exc:
         return fail(f"No pude abrir la tarea: {exc}")
     report["antes"] = before
@@ -497,7 +498,10 @@ def run(args: argparse.Namespace) -> int:
     if problem:
         return fail(problem)
     try:
-        return asyncio.run(_hand_in(course, task, files, args))
+        return run_with_session(
+            lambda: asyncio.run(_hand_in(course, task, files, args)),
+            interactive=_interactive() and not args.json,
+        )
     except KeyboardInterrupt:
         fail(
             "Interrumpido. Si ya estaba subiendo, mira cómo quedó con "

@@ -13,7 +13,7 @@ from datetime import date, datetime
 from typing import Any
 
 from .. import sources
-from ..style import BLUE, GRAY, RED, WHITE, muted, pad, paint, term_width
+from ..style import BLUE, GRAY, RED, WHITE, clip, muted, pad, paint, term_width
 from ..ui import block, empty, long_day
 from . import Command, show
 
@@ -42,7 +42,10 @@ def _side_by_side(left: list[str], right: list[str], cells: int, right_cells: in
     rows = max(len(left), len(right))
     left = left + [""] * (rows - len(left))
     right = right + [""] * (rows - len(right))
-    return [pad(a, left_cells) + "   " + b for a, b in zip(left, right, strict=True)]
+    return [
+        pad(clip(a, left_cells), left_cells) + "   " + clip(b, right_cells)
+        for a, b in zip(left, right, strict=True)
+    ]
 
 
 def _pending(result: sources.Result) -> str:
@@ -63,7 +66,7 @@ def _counts(events: list[dict[str, Any]] | None, now: datetime) -> tuple[int, in
             continue
         seconds = (moment - now).total_seconds()
         if seconds < 0:
-            overdue += 1
+            overdue += 1 if event.get("actionable") else 0  # closed ones are not to do
         elif seconds < 86400:
             soon += 1
             week += 1

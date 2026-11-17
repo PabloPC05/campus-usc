@@ -26,6 +26,7 @@ from .style import (
     RED,
     WHITE,
     bold,
+    clip,
     link,
     muted,
     pad,
@@ -290,7 +291,10 @@ def columns(left: list[str], right: list[str], cells: int | None = None, gap: in
     rows = max(len(left), len(right))
     left = left + [""] * (rows - len(left))
     right = right + [""] * (rows - len(right))
-    return [pad(a, half) + " " * gap + b for a, b in zip(left, right, strict=True)]
+    return [
+        pad(clip(a, half), half) + " " * gap + clip(b, cells - half - gap)
+        for a, b in zip(left, right, strict=True)
+    ]
 
 
 def empty(text: str) -> str:

@@ -58,6 +58,16 @@ def activity_name(item: dict[str, Any]) -> str:
     return _DUE_SUFFIX.sub("", str(item.get("name") or "")).strip()
 
 
+def still_open(item: dict[str, Any]) -> bool:
+    """Moodle still offers the action: an overdue task that takes late work, for example.
+
+    Overdue tasks whose cutoff passed stay in Moodle's timeline with the button disabled;
+    they are no longer something you can do, so they never count as «atrasadas».
+    """
+
+    return bool(item.get("actionable"))
+
+
 def items_in_window(
     data: list[dict[str, Any]] | None,
     *,
@@ -77,7 +87,7 @@ def items_in_window(
         if moment < now:
             if overdue:
                 shown.append(item)
-            else:
+            elif still_open(item):
                 hidden_overdue += 1
             continue
         if moment <= limit:
@@ -93,8 +103,12 @@ def item_lines(item: dict[str, Any], cells: int, *, now: datetime | None = None)
     clock = f"{moment:%H:%M}" if moment else "--:--"
     left_text, color = countdown(moment, now) if moment else ("", None)
     tag = paint(left_text, color, bold=color in {RED}) if color else muted(left_text)
+    closed = moment is not None and moment < (now or datetime.now()) and not still_open(item)
+    if closed:
+        tag = muted("pechada")
     name_cells = cells - 8 - 4 - width(tag) - 2
-    name = link(bold(truncate(activity_name(item), max(8, name_cells))), item.get("url"))
+    shown_name = truncate(activity_name(item), max(8, name_cells))
+    name = link(muted(shown_name) if closed else bold(shown_name), item.get("url"))
     first = f"  {muted(clock)}  {activity_icon(item.get('module'))} {name}"
     first += " " * max(1, cells - width(first) - width(tag)) + tag
     kind = _KIND.get(str(item.get("module") or ""), "Actividade")
@@ -230,4 +244,11 @@ COMMANDS = [
     )
 ]
 
-__all__ = ["COMMANDS", "activity_name", "items_in_window", "item_lines", "render_timeline"]
+__all__ = [
+    "COMMANDS",
+    "activity_name",
+    "items_in_window",
+    "item_lines",
+    "render_timeline",
+    "still_open",
+]
