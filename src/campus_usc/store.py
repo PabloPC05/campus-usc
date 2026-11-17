@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-FORMAT = 1
+FORMAT = 2  # 2: text scrubbed of control characters, notifications with their text
 _SAFE = re.compile(r"[^0-9A-Za-z_.-]+")
 
 

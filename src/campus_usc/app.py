@@ -11,6 +11,7 @@ import contextlib
 import importlib
 import sys
 import time
+from typing import Any
 
 from .views import Command
 
@@ -22,6 +23,7 @@ VIEW_MODULES = (
     "calendario",
     "cursos",
     "curso",
+    "entregar",
     "notificaciones",
 )
 _GLOBAL_FLAGS = {"--json": "json", "-f": "fresco", "--fresco": "fresco", "--sin-color": "no_color"}
@@ -128,12 +130,147 @@ def _limpiar(args: argparse.Namespace) -> int:
     return 0
 
 
-def _login(args: argparse.Namespace) -> int:
-    from mcp_usc import cli
+LOGIN_URL = "https://cv.usc.es/login/index.php"
 
-    sys.argv = ["mcp-usc", "login"]
-    cli.main()
+
+def _new_settings() -> Any:
+    from mcp_usc.settings import Settings
+
+    return Settings.from_env()
+
+
+def _ask(prompt: str) -> str:
+    return input(prompt)
+
+
+def _secret(prompt: str) -> str:
+    import getpass
+
+    return getpass.getpass(prompt)
+
+
+def _login_window(args: argparse.Namespace) -> int:
+    """Microsoft + MFA in a browser window that closes itself once the Campus lets you in."""
+
+    import asyncio
+    import importlib.util
+
+    from mcp_usc.campus import (
+        CampusError,
+        LoginBrowserUnavailable,
+        install_login_browser,
+        interactive_login,
+        login_browser_download_engine,
+    )
+
+    from .style import bold, muted
+    from .ui import out
+    from .views import fail
+
+    if importlib.util.find_spec("playwright") is None:
+        return fail(
+            "Falta el navegador del login. Reinstala con el extra browser-auth "
+            '(uv tool install --reinstall "campus-usc[browser-auth] @ …") '
+            "o entra con tu navegador: campus login --pegar"
+        )
+    out(
+        [
+            "  Se abre una ventana del navegador en "
+            + bold("cv.usc.es")
+            + ": entra con tu cuenta de la USC",
+            "  (Microsoft y MFA). Cuando el Campus te deje entrar, se cierra sola.",
+            muted("  Solo se guarda la cookie de sesión del Campus, en el llavero del sistema."),
+            "",
+        ]
+    )
+    settings = _new_settings()
+    try:
+        try:
+            asyncio.run(interactive_login(settings, args.minutos * 60))
+        except LoginBrowserUnavailable:
+            engine = login_browser_download_engine()
+            if not sys.stdin.isatty() or _ask(
+                f"  No hay Chrome ni Edge. ¿Descargo {engine} solo para el login? [S/n] "
+            ).strip().casefold() in {"n", "no"}:
+                return fail("Sin navegador para el login. Prueba: campus login --pegar")
+            install_login_browser()
+            asyncio.run(interactive_login(settings, args.minutos * 60))
+    except (CampusError, TimeoutError) as exc:
+        return fail(str(exc))
     return 0
+
+
+def _login_paste(args: argparse.Namespace) -> int:
+    """Your own browser: log in there, then paste its MoodleSession cookie (hidden input)."""
+
+    import asyncio
+    import webbrowser
+
+    from mcp_usc.session_auth import SessionImportError, import_session_cookie
+
+    from .style import BLUE, bold, link, muted, paint
+    from .ui import out
+    from .views import fail
+
+    opened = webbrowser.open(LOGIN_URL)
+    out(
+        [
+            f"  1. {'Abrí' if opened else 'Abre'} "
+            + link(paint(LOGIN_URL, BLUE, bold=True), LOGIN_URL)
+            + " en tu navegador y entra como siempre.",
+            "  2. Copia el valor de la cookie " + bold("MoodleSession") + " de cv.usc.es:",
+            muted("     Safari: Desarrollo › Mostrar inspector web › Almacenamiento › Cookies"),
+            muted("     Chrome/Edge: F12 › Aplicación › Cookies · Firefox: F12 › Almacenamiento"),
+            "  3. Pégalo aquí (no se ve al escribir). Se comprueba con el Campus antes de",
+            "     guardarlo.",
+            "",
+        ]
+    )
+    if not sys.stdin.isatty():
+        return fail("Esto necesita una terminal para pegar la cookie sin que se vea.")
+    cookie = _secret("  MoodleSession: ").strip()
+    if not cookie:
+        return fail("No pegaste nada; no se cambió la sesión.")
+    try:
+        asyncio.run(import_session_cookie(_new_settings(), cookie))
+    except SessionImportError as exc:
+        return fail(str(exc))
+    return 0
+
+
+def _login(args: argparse.Namespace) -> int:
+    from . import sources
+    from .style import GREEN, bold, muted, paint
+    from .ui import navbar, out
+
+    out([navbar(["Acceder"]), ""])
+    try:
+        code = _login_paste(args) if args.pegar else _login_window(args)
+    except KeyboardInterrupt:
+        return 130
+    if code:
+        return code
+    # Who is in now (and the navbar's name, cached for every screen).
+    perfil = sources.fetch_now(["perfil"], quiet=True)["perfil"]
+    name = (perfil.data or {}).get("fullname") if perfil.ok else None
+    out(
+        "  "
+        + paint("✓ Sesión iniciada", GREEN, bold=True)
+        + (f" como {bold(name)}" if name else "")
+        + muted("  ·  campus actualizar lo deja todo listo")
+    )
+    return 0
+
+
+def _configure_login(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--pegar",
+        action="store_true",
+        help="Entra con tu navegador y pega aquí su cookie MoodleSession (sin ventana aparte)",
+    )
+    parser.add_argument(
+        "--minutos", type=int, default=15, help="Tiempo para completar el login (15)"
+    )
 
 
 def _estado(args: argparse.Namespace) -> int:
@@ -192,7 +329,13 @@ def _builtin() -> list[Command]:
         ),
         Command("estado", "Comprueba la sesión y lo fresca que está la caché", _estado),
         Command("limpiar", "Borra las cachés locales (CLI y motor)", _limpiar),
-        Command("login", "Inicia sesión en el Campus (Microsoft + MFA)", _login),
+        Command(
+            "login",
+            "Inicia sesión en el Campus (Microsoft + MFA)",
+            _login,
+            _configure_login,
+            aliases=("acceder",),
+        ),
     ]
 
 
@@ -247,7 +390,7 @@ def main(argv: list[str] | None = None) -> None:
 
         from . import __version__
 
-        print(f"campus {__version__} (mcp-usc {engine})")
+        print(f"campus-usc {__version__} (mcp-usc {engine})")
         raise SystemExit(0)
     parser = argparse.ArgumentParser(prog="campus", add_help=False)
     subparsers = parser.add_subparsers(dest="command")

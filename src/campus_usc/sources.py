@@ -87,12 +87,15 @@ async def _notificaciones(service: Any, _param: str) -> Any:
         "contexturl",
         "contexturlname",
     )
-    return {
-        "unread": payload.get("unreadcount", 0),
-        "items": [
-            {name: item.get(name) for name in keep} for item in payload.get("notifications") or []
-        ],
-    }
+    from .text import html_to_text
+
+    items = []
+    for item in payload.get("notifications") or []:
+        entry = {name: item.get(name) for name in keep}
+        # The whole message, as text, so `campus notificaciones N` reads it offline.
+        entry["text"] = html_to_text(item.get("fullmessagehtml") or item.get("fullmessage"))
+        items.append(entry)
+    return {"unread": payload.get("unreadcount", 0), "items": items}
 
 
 async def _perfil(service: Any, _param: str) -> Any:
@@ -226,6 +229,8 @@ async def _fetch_all(keys: list[str]) -> dict[str, Result]:
     from mcp_usc.campus import AuthenticationRequired, CampusError
     from mcp_usc.service import UscService
 
+    from .text import scrub
+
     service = UscService()
 
     async def one(key: str) -> Result:
@@ -238,6 +243,7 @@ async def _fetch_all(keys: list[str]) -> dict[str, Result]:
             return Result(key, error=str(exc))
         except Exception as exc:  # noqa: BLE001 - one broken block must not sink the screen
             return Result(key, error=f"{type(exc).__name__}: {exc}")
+        data = scrub(data)  # text from the Campus can never drive the terminal
         with contextlib.suppress(OSError):
             store.write(key, data)
         return Result(key, data, 0.0)
