@@ -372,6 +372,9 @@ def _modulos(args: argparse.Namespace) -> int:
         verb = "Quitarlo" if on else "Añadirlo"
         lines.append(muted(f"    {verb}:") + f" {modulos.install_command(wanted)}")
         lines.append("")
+    lines.append(muted("  O vuelve a ejecutar el instalador, que te explica cada parte:"))
+    installer = "https://raw.githubusercontent.com/PabloPC05/campus-usc/main/instalar.sh"
+    lines.append(f"    curl -LsSf {installer} | sh")
     out(lines)
     return 0
 

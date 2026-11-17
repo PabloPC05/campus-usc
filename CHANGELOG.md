@@ -68,6 +68,9 @@ Primera versión, separada de mcp-usc en su propio repositorio.
 - Entrar sin descargar ningún navegador: la ventana de login se abre en tu Chrome, Edge, Brave o
   Chromium (con un perfil aparte). La instalación pasa de unos 208 MB a unos 48 MB; quien no
   tenga ninguno de esos usa `campus login --pegar` o el extra `campus-usc[navegador]`.
+- Instalador con menú (`instalar.sh` en Mac y Linux, `instalar.ps1` en Windows): mira el
+  ordenador, explica las tres partes (el Campus, horario y exámenes, el navegador incluido) con
+  lo que ocupa y cambia cada una, recomienda lo que hace falta, instala y ofrece entrar.
 - Instantánea: cada pantalla se pinta en ~30 ms desde una caché local privada (0600, sin
   credenciales), con refresco en segundo plano de lo que está viejo, una sola sesión para todas las
   consultas de una pantalla y los bloques lentos del Taboleiro diferidos para no bloquearlo.

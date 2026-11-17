@@ -40,7 +40,7 @@ jobs:
           uv pip install -e modulos/horarios
 
       - name: Lint
-        run: uv run --no-sync ruff check src tests modulos && uv run --no-sync ruff format --check src tests modulos
+        run: uv run --no-sync ruff check src tests modulos instalar.py && uv run --no-sync ruff format --check src tests modulos instalar.py
 
       - name: Test the core
         run: uv run --no-sync pytest tests

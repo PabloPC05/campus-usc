@@ -49,26 +49,35 @@ módulos hay y la línea exacta para añadirlos o quitarlos.
 
 ## Instalación
 
-Dos pasos, una sola vez. En Mac o Linux, abre la app Terminal y pega:
+Un solo comando. En Mac o Linux, abre la app Terminal y pega:
 
 ```sh
-curl -LsSf https://astral.sh/uv/install.sh | sh
-uv tool install "campus-usc @ https://github.com/PabloPC05/campus-usc/archive/refs/heads/main.zip"
+curl -LsSf https://raw.githubusercontent.com/PabloPC05/campus-usc/main/instalar.sh | sh
 ```
-
-Para tener también el horario y los exámenes, la segunda línea con `campus-usc[horarios]` en vez
-de `campus-usc`.
 
 En Windows, abre PowerShell y pega:
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-uv tool install "campus-usc @ https://github.com/PabloPC05/campus-usc/archive/refs/heads/main.zip"
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/PabloPC05/campus-usc/main/instalar.ps1 | iex"
 ```
 
-Cierra la terminal, ábrela de nuevo y escribe `campus`. El primer paso instala
-[uv](https://docs.astral.sh/uv/), que es quien instala y pone al día programas de Python. Para
-actualizar `campus`, repite la segunda línea añadiendo `--reinstall --refresh`.
+El instalador mira tu ordenador (sistema, navegador, si hay pantalla) y te explica, antes de
+instalar nada, las tres partes y lo que cambia cada una:
+
+| Parte | Qué hace | Ocupa |
+|---|---|---|
+| El Campus (siempre) | tareas y entregas, notas, avisos, foros, mensajes, cuestionarios, materiales… | ~40 MB |
+| Horario y exámenes (opcional) | `horario`, `hoy`, `mañana`, `examenes`; vienen de usc.gal y la primera vez tardan 1–2 min | +0,3 MB |
+| Navegador incluido (opcional) | solo si no tienes Chrome, Edge, Brave ni Chromium (un Mac solo con Safari) | +160 MB |
+
+Te recomienda lo que necesita tu ordenador, pregunta y, al acabar, te ofrece entrar en el
+Campus. Para cambiar las partes más tarde, vuelve a ejecutarlo (`campus modulos` te recuerda
+cómo). Instala también [uv](https://docs.astral.sh/uv/), que es quien instala y pone al día
+programas de Python.
+
+A mano, sin menú: `uv tool install "campus-usc @ https://github.com/PabloPC05/campus-usc/archive/refs/heads/main.zip"`,
+con `campus-usc[horarios]`, `campus-usc[navegador]` o `campus-usc[horarios,navegador]` para
+añadir partes.
 
 ## Entrar en tu cuenta
 
