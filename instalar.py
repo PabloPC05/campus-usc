@@ -198,21 +198,29 @@ def describe(machine: Machine) -> list[str]:
     ]
 
 
+def heading(title: str, size: str) -> str:
+    """A part's title with its size at the right; every size in the same column."""
+
+    return bold(f"  {title}".ljust(66) + size.rjust(9))
+
+
+def install_line(plan: Plan) -> str:
+    return f'uv tool install --reinstall "{plan.target()}"'
+
+
 def parts(machine: Machine) -> list[str]:
     _, why = recommend_browser(machine)
     return [
-        bold(f"  1. El Campus  (siempre)                                         ~{CORE_MB} MB"),
+        heading("1. El Campus  (siempre)", f"~{CORE_MB} MB"),
         "     Tareas y entregas, notas, avisos y foros, mensajes, cuestionarios, materiales,",
         "     notificaciones y tus cursos. Cada pantalla tarda unos 30 ms.",
         "",
-        bold("  2. Horario y exámenes  (opcional)                                +0,3 MB"),
+        heading("2. Horario y exámenes  (opcional)", "+0,3 MB"),
         "     Añade campus horario, hoy, mañana y examenes, y los muestra en el Taboleiro.",
         "     No son del Campus sino de usc.gal: la primera vez tardan 1 o 2 minutos en",
         "     localizar tus asignaturas en los planes de estudio; luego, al momento.",
         "",
-        bold(
-            f"  3. Navegador incluido para entrar  (opcional)                    +{BROWSER_MB} MB"
-        ),
+        heading("3. Navegador incluido para entrar  (opcional)", f"+{BROWSER_MB} MB"),
         "     Solo sirve si no tienes Chrome, Edge, Brave ni Chromium. La primera vez que",
         "     entres descarga además su motor de navegador (un minuto más).",
         *("     " + line for line in textwrap.wrap(why, 80)),
@@ -231,7 +239,6 @@ def summary(plan: Plan) -> list[str]:
         "",
         "  " + bold("Se instalará: ") + ", ".join(chosen),
         f"  Ocupará unos {plan.size_mb()} MB y tardará {seconds}.",
-        muted(f'  (uv tool install --reinstall "{plan.target()}")'),
         "",
     ]
 
@@ -264,7 +271,8 @@ def install(plan: Plan) -> int:
         [uv, "tool", "install", "--reinstall", "--quiet", plan.target()], check=False
     )
     if done.returncode != 0:
-        print("  No se pudo instalar. Prueba de nuevo, o escribe el comando de arriba a mano.")
+        print("  No se pudo instalar. Prueba de nuevo, o escribe esto a mano:")
+        print(f"  {install_line(plan)}")
         return done.returncode
     subprocess.run([uv, "tool", "update-shell"], capture_output=True, check=False)
     return 0
@@ -295,6 +303,7 @@ def main(argv: list[str] | None = None) -> int:
     plan = choose(machine, options)
     print("\n".join(summary(plan)))
     if options.simular:
+        print(muted(f"  Por dentro: {install_line(plan)}"))
         print(muted("  (simulación: no se ha instalado nada)"))
         return 0
     if not options.si and not ask("¿Instalo?", True):
