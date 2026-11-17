@@ -326,3 +326,29 @@ def test_labels_show_the_teachers_text(capsys):
         line for line in output.splitlines() if "coordinadora" in line or "Profesorado." in line
     ]
     assert 1 < len(label_rows) <= 4
+
+
+def test_course_page_shows_grades_already_looked_at(capsys):
+    late = store.read("pendientes")[0]
+    for event in late:
+        if event.get("url", "").endswith("id=21"):
+            event["actionable"] = False  # graded tasks are closed: no «Engadir entrega»
+    store.write("pendientes", late)
+    store.write(
+        "notas/201",
+        {
+            "items": [
+                {
+                    "kind": "item",
+                    "level": 2,
+                    "name": "Práctica 3",
+                    "grade": "8,5",
+                    "range": "0–10",
+                    "url": "https://cv.usc.es/mod/assign/view.php?id=21",
+                }
+            ]
+        },
+    )
+    code, output, _ = _run(capsys, "curso", "redes")
+    row = next(line for line in output.splitlines() if "Práctica 3" in line and "/ 10" in line)
+    assert "8,5 / 10" in row and "pechada" not in row

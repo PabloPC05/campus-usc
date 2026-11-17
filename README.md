@@ -18,6 +18,7 @@ campus curso ia           # la página de la asignatura: secciones, actividades 
 campus materiales ia      # sus archivos y carpetas
 campus descargar ia       # baja sus materiales con barra de progreso (pregunta antes)
 campus entregar redes 3 practica.pdf   # entrega un archivo en una tarea (pregunta antes)
+campus entregar asr T1    # cómo está una entrega y, si ya está corregida, su nota y comentario
 campus notificaciones     # notificacións numeradas; «campus notificaciones 3» lee una entera
 campus notas              # «Cualificacións»; «campus notas asr» con cada nota y su comentario
 campus avisos             # los anuncios del profesorado de todas tus asignaturas

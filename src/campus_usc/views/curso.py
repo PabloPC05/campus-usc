@@ -223,8 +223,33 @@ def _pending_badge(event: dict[str, Any] | None, now: datetime | None = None) ->
     return paint(" Pendente ", WHITE, BLUE, bold=True) + " " + paint(left, tone)
 
 
+def graded_by_module(report: dict[str, Any] | None) -> dict[int, tuple[str, str | None]]:
+    """``{cmid: (grade, range)}`` from a cached «Cualificacións» report of the course."""
+
+    found: dict[int, tuple[str, str | None]] = {}
+    for item in (report or {}).get("items") or []:
+        grade = item.get("grade")
+        match = _CMID.search(str(item.get("url") or ""))
+        if item.get("kind") == "item" and match and grade not in (None, "", "-"):
+            found[int(match.group(1))] = (str(grade), item.get("range"))
+    return found
+
+
+def _grade_badge(graded: tuple[str, str | None] | None) -> str:
+    if not graded:
+        return ""
+    from .notas import grade_text
+
+    grade, top = graded
+    maximum = str(top or "").replace("–", "-").split("-")[-1].strip()
+    return grade_text(grade, top) + (muted(f" / {maximum}") if maximum else "")
+
+
 def activity_lines(
-    item: dict[str, Any], cells: int, pending: dict[str, Any] | None = None
+    item: dict[str, Any],
+    cells: int,
+    pending: dict[str, Any] | None = None,
+    graded: tuple[str, str | None] | None = None,
 ) -> list[str]:
     module = item.get("module_type")
     icon = activity_icon(module)
@@ -238,7 +263,14 @@ def activity_lines(
             rows = rows[:_LABEL_ROWS]
             rows[-1] = truncate(rows[-1] + " …", cells - 8)
         return ["  " + icon + " " + muted(rows[0])] + ["     " + muted(row) for row in rows[1:]]
-    tag = _pending_badge(pending) or _kind_tag(item)
+    # A graded task shows its grade, even when its deadline (and the action) is past.
+    closed = bool(pending) and not pending.get("actionable")
+    tag = (
+        (_grade_badge(graded) if closed else "")
+        or _pending_badge(pending)
+        or _grade_badge(graded)
+        or _kind_tag(item)
+    )
     name = clean_text(item.get("name")) or "(sen nome)"
     name_cells = max(8, cells - 2 - 3 - 1 - width(tag) - 2)
     shown = link(bold(truncate(name, name_cells)), item.get("activity_url") or item.get("url"))
@@ -359,10 +391,15 @@ def render_course(
             muted("  " + truncate(f"Seccións: {names}", cells - 2)),
         ]
     by_module = pending_by_module(pendientes.data if pendientes is not None else None)
+    report = store.read(f"notas/{course['id']}")  # only if you already looked at its grades
+    graded = graded_by_module(report[0] if report else None)
     for _, name, members in chosen:
         lines += ["", section_heading(name, len(members), color, cells)]
         for item in members:
-            lines.extend(activity_lines(item, cells, by_module.get(item.get("module_id"))))
+            module_id = item.get("module_id")
+            lines.extend(
+                activity_lines(item, cells, by_module.get(module_id), graded.get(module_id))
+            )
     data = contents.data or {}
     if data.get("has_more"):
         lines += [

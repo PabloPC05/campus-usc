@@ -50,6 +50,9 @@ Primera versión, separada de mcp-usc en su propio repositorio.
     `escribir` para enviar uno (lo enseña y pregunta antes);
   - `cuestionarios`: los de cada asignatura, y el detalle de uno con fechas, tiempo límite,
     intentos permitidos, tus intentos y tu nota.
+- La nota de cada entrega: `campus entregar asr T1` enseña la corrección (nota, cuándo y quién,
+  comentario y archivos de corrección), también con la tarea ya cerrada; en la página del curso,
+  cada tarea corregida lleva su nota cuando ya miraste `campus notas` de esa asignatura.
 - Instantánea: cada pantalla se pinta en ~30 ms desde una caché local privada (0600, sin
   credenciales), con refresco en segundo plano de lo que está viejo, una sola sesión para todas las
   consultas de una pantalla y los bloques lentos del Taboleiro diferidos para no bloquearlo.

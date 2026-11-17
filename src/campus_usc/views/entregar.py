@@ -27,12 +27,27 @@ import json
 import os
 import re
 import sys
+import textwrap
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from .. import sources, store
 from ..auth import SessionExpired, run_with_session
-from ..style import AMBER, BLUE, GREEN, RED, WHITE, bold, muted, paint, term_width, truncate
+from ..style import (
+    AMBER,
+    BLUE,
+    GREEN,
+    RED,
+    WHITE,
+    bold,
+    link,
+    muted,
+    paint,
+    term_width,
+    truncate,
+    width,
+)
 from ..ui import (
     activity_icon,
     block,
@@ -170,6 +185,8 @@ def _state(inspected: dict[str, Any]) -> dict[str, Any]:
         "max_files": manager.get("max_files"),
         "max_bytes": manager.get("max_bytes"),
         "status": dict(status.get("rows") or {}),
+        "feedback": dict(status.get("feedback") or {}),
+        "feedback_files": list(status.get("feedback_files") or []),
         "submit_step": bool(status.get("submit_for_grading_available")),
         "unknown": inspected.get("outcome") == "unknown",
     }
@@ -196,6 +213,44 @@ def status_lines(state: dict[str, Any], cells: int) -> list[str]:
                     "  " + muted(text) + paint(truncate(value, cells - len(text) - 4), tone)
                 )
                 break
+    return lines
+
+
+_GRADE_LABELS = ("cualificacion", "calificacion", "grade")
+
+
+def feedback_lines(state: dict[str, Any], cells: int) -> list[str]:
+    """«Comentarios»: the grade, who and when, the teacher's words and returned files."""
+
+    feedback = state.get("feedback") or {}
+    files = state.get("feedback_files") or []
+    if not feedback and not files:
+        return []
+    from .notas import grade_text
+
+    lines = ["", "  " + bold("Comentarios")]
+    for label, value in feedback.items():
+        name = fold(label)
+        if any(name.startswith(word) for word in _GRADE_LABELS) and "/" in value:
+            mark, _, top = value.partition("/")
+            shown = grade_text(mark.strip(), f"0-{top.strip()}") + muted(f" / {top.strip()}")
+            lines.append(f"  {muted(label + ':')} {shown}")
+            continue
+        rows = [
+            row
+            for paragraph in value.split("\n")
+            for row in (textwrap.wrap(paragraph, max(20, cells - 8)) if paragraph.strip() else [""])
+        ]
+        if len(rows) == 1 and width(label) + width(rows[0]) < cells - 6:
+            lines.append(f"  {muted(label + ':')} {rows[0]}")
+        else:
+            lines.append(f"  {muted(label + ':')}")
+            lines += [
+                f"    {paint('❝ ', AMBER) if number == 0 else '  '}{row}".rstrip()
+                for number, row in enumerate(rows)
+            ]
+    for item in files:
+        lines.append(f"  {paint('📎', BLUE)} {link(str(item.get('name')), item.get('url'))}")
     return lines
 
 
@@ -299,10 +354,12 @@ async def _hand_in(
     moment = parse_moment(due.get("sort_at")) if due else None
     if moment:
         left, tone = countdown(moment)
+        if not due.get("actionable") and moment.timestamp() < datetime.now().timestamp():
+            left, tone = "pechada", None  # closed (and maybe graded): no countdown
         say(
             "    "
             + muted(f"Data límite: {long_day(moment.date())} · {moment:%H:%M}  ")
-            + paint(left, tone)
+            + (paint(left, tone) if tone else muted(left))
         )
     try:
         before = _state(await inspect(service, cmid))
@@ -316,10 +373,18 @@ async def _hand_in(
         return fail("Moodle no respondió como esperaba al abrir la tarea; prueba en la web.")
     for line in status_lines(before, cells):
         say(line)
+    for line in feedback_lines(before, cells):  # graded: shown even once it is closed
+        say(line)
+    if not before["open"] and not files and not args.enviar and not args.retirar:
+        return finish(0)  # just looking at a closed task: its status and grade are the answer
     if not before["open"]:
         fail("Esta tarea no admite cambios ahora: el plazo cerró o ya se envió para cualificar.")
         return finish(1)
     if not before["takes_files"]:
+        if not files and not args.enviar and not args.retirar:
+            say("")
+            say(muted("  Esta tarefa non recibe ficheiros polo Campus."))
+            return finish(0)
         fail(
             "Esta tarea no recibe archivos por el Campus (es de texto en línea o se entrega "
             "fuera del Campus)."

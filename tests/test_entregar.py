@@ -324,3 +324,29 @@ def test_expired_session_is_renewed_before_anything_changes(capsys, service, upl
     code, output, _ = _run(capsys, "entregar", "aed", "1", str(upload), "--si")
     assert code == 0 and renewals == [False]
     assert service.writes() == ["replace"] and "✓ Subido" in output
+
+
+def test_a_graded_closed_task_shows_its_grade_and_feedback(capsys, service, monkeypatch):
+    original = service.inspect_submission_status
+
+    async def graded(cmid, token):
+        result = await original(cmid, token)
+        if token is not None:
+            result["editable"] = False
+            result["submission_status"]["feedback"] = {
+                "Cualificación": "9,0 / 10,0",
+                "Cualificado por": "Ana Proba",
+                "Comentarios": "Moi ben.\n\nRevisa o apartado 3.",
+            }
+            result["submission_status"]["feedback_files"] = [
+                {"name": "correccion.pdf", "url": "https://cv.usc.es/pluginfile.php/x"}
+            ]
+        return result
+
+    monkeypatch.setattr(service, "inspect_submission_status", graded)
+    code, output, _ = _run(capsys, "entregar", "aed", "1")
+    text = " ".join(output.split())
+    assert code == 0 and "Comentarios" in output
+    assert "Cualificación: 9,0 / 10,0" in text and "Cualificado por: Ana Proba" in text
+    assert "Moi ben." in output and "Revisa o apartado 3." in output
+    assert "correccion.pdf" in output and service.writes() == []
