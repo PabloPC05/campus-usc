@@ -52,7 +52,7 @@ def test_si_takes_the_recommendation_without_asking(monkeypatch):
 
 
 def test_answers_choose_the_parts(monkeypatch):
-    answers = iter(["", "s"])  # keep the recommendation for the browser, add horarios
+    answers = iter(["s", ""])  # add horarios, keep the recommendation for the browser
     monkeypatch.setattr("builtins.input", lambda prompt: next(answers))
     options = instalar.argparse.Namespace(si=False, horarios=None, navegador=None)
     plan = instalar.choose(machine(), options)

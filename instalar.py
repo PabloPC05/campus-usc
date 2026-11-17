@@ -237,14 +237,16 @@ def summary(plan: Plan) -> list[str]:
 
 
 def choose(machine: Machine, options: argparse.Namespace) -> Plan:
+    """The questions in the order of the list above: 2 (horario) and then 3 (navegador)."""
+
+    horarios = bool(options.horarios)
+    if options.horarios is None and not options.si:
+        horarios = ask("¿Añado horario y exámenes (2)?", False)
     wants_browser, _ = recommend_browser(machine)
     if options.navegador is not None:
         wants_browser = options.navegador
     elif not options.si and machine.screen:
         wants_browser = ask("¿Añado el navegador incluido (3)?", wants_browser)
-    horarios = bool(options.horarios)
-    if options.horarios is None and not options.si:
-        horarios = ask("¿Añado horario y exámenes (2)?", False)
     return Plan(horarios=horarios, navegador=wants_browser)
 
 
