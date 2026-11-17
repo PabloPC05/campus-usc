@@ -49,6 +49,18 @@ def has_screen() -> bool:
     return True
 
 
+def session_saved() -> bool:
+    """Whether a Campus session is stored here (expired or not) or you never logged in."""
+
+    try:
+        from mcp_usc.credentials import CredentialStore
+        from mcp_usc.session_auth import SESSION_CREDENTIAL_NAME
+
+        return bool(CredentialStore().get(SESSION_CREDENTIAL_NAME))
+    except Exception:  # noqa: BLE001 - only picks the wording of a message
+        return False
+
+
 def available() -> bool:
     """Whether the login browser (Playwright) is installed with the engine."""
 

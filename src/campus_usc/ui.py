@@ -322,10 +322,14 @@ def status_line(results: dict[str, Any], started: float | None = None) -> str:
     line = paint("  " + " · ".join(parts), GRAY) if parts else ""
     problems = []
     if any(r.login_needed for r in results.values()):
+        from .auth import has_screen, session_saved
+
+        what = "La sesión del Campus caducó" if session_saved() else "No has entrado en el Campus"
+        how = "campus login" if has_screen() else "campus login --pegar"
         problems.append(
             paint(" ! ", WHITE, RED, bold=True)
-            + " La sesión del Campus caducó: ejecuta "
-            + bold("campus login")
+            + f" {what}: ejecuta "
+            + bold(how)
             + (" (mostrando lo último guardado)" if ages else "")
         )
     for result in results.values():
