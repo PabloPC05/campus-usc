@@ -4,6 +4,13 @@
 
 Primera versión, separada de mcp-usc en su propio repositorio.
 
+- **Un solo repositorio para todo el proyecto, con los nombres ordenados.** El motor (la
+  biblioteca que habla con el Campus) deja de llamarse `mcp-usc` y pasa a ser `campus-usc-core`,
+  en `core/`. `mcp-usc` queda solo para el servidor MCP, en `mcp/`. El CLI `campus` (raíz) y el
+  servidor dependen del motor; son dos caras de la misma pieza. El módulo de horarios sigue en
+  `modulos/horarios`. Las rutas en disco (caché, llavero) siguen bajo `mcp-usc`, así que las
+  sesiones ya iniciadas no se pierden.
+
 - Aspecto del Campus: barra azul marino con la marca USC y tus iniciales, etiquetas en gallego
   como en cv.usc.es, iconos de actividad con los colores de Moodle 4 y cada asignatura en el color
   de su tarjeta de «Os meus cursos».

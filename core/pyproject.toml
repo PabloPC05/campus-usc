@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "campus-usc-core"
+version = "0.11.0"
+description = "El motor del Campus Virtual de la USC: biblioteca que habla con Moodle por HTTP (no es un MCP ni un CLI)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "PabloPC05" }]
+keywords = ["usc", "moodle", "campus-virtual", "biblioteca"]
+dependencies = [
+  "beautifulsoup4>=4.13,<5",
+  "httpx>=0.28,<1",
+  "keyring>=25.6,<26",
+  "platformdirs>=4.3,<5",
+  "pypdf>=5,<7",
+  # usc.gal renders its filter links inside Vue <template> elements; soupsieve 3+
+  # stopped matching template contents with select().
+  "soupsieve>=2.5,<3",
+  "tzdata>=2025.2",
+  # The login window in your own Chrome/Edge/Brave (DevTools), nothing to download.
+  "websockets>=13,<16",
+]
+
+[project.optional-dependencies]
+# A bundled login browser for computers with no Chrome/Edge/Brave (a Mac with only Safari).
+browser-auth = ["playwright>=1.55,<2"]
+dev = ["pytest>=8.4,<9", "pytest-asyncio>=1.1,<2", "respx>=0.22,<1", "ruff>=0.12,<1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/campus_usc_core"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

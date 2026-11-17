@@ -286,9 +286,9 @@ def fetch_now(keys: list[str], *, quiet: bool = False) -> dict[str, Result]:
 async def _fetch_all(keys: list[str]) -> dict[str, Result]:
     import asyncio
 
-    from mcp_usc.academic_profile import AcademicProfileError
-    from mcp_usc.campus import AuthenticationRequired, CampusError
-    from mcp_usc.service import UscService
+    from campus_usc_core.academic_profile import AcademicProfileError
+    from campus_usc_core.campus import AuthenticationRequired, CampusError
+    from campus_usc_core.service import UscService
 
     from .text import scrub
 

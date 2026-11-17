@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-usc"
+version = "0.11.0"
+description = "Servidor MCP del Campus Virtual de la USC (sobre campus-usc-core)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "PabloPC05" }]
+keywords = ["mcp", "moodle", "usc", "campus-virtual"]
+dependencies = [
+  "campus-usc-core @ https://github.com/PabloPC05/campus-usc/archive/refs/heads/main.zip#subdirectory=core",
+  "mcp>=1.29,<2",
+]
+
+[project.optional-dependencies]
+browser-auth = ["campus-usc-core[browser-auth] @ https://github.com/PabloPC05/campus-usc/archive/refs/heads/main.zip#subdirectory=core"]
+dev = ["pytest>=8.4,<9", "pytest-asyncio>=1.1,<2", "respx>=0.22,<1", "ruff>=0.12,<1"]
+
+[project.scripts]
+mcp-usc = "mcp_usc.cli:main"
+mcp-usc-login = "mcp_usc.cli:login_main"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_usc"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

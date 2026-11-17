@@ -159,8 +159,8 @@ def _size(count: int) -> str:
 def _new_service(upload_root: Path | None = None) -> Any:
     from dataclasses import replace
 
-    from mcp_usc.service import UscService  # heavy: only when really handing in
-    from mcp_usc.settings import Settings
+    from campus_usc_core.service import UscService  # heavy: only when really handing in
+    from campus_usc_core.settings import Settings
 
     settings = Settings.from_env()
     if upload_root is not None:
@@ -285,7 +285,7 @@ async def _withdraw(
 ) -> int:
     """«Retirar a entrega»: Moodle's own removal, after the same kind of confirmation."""
 
-    from mcp_usc.campus import AuthenticationRequired, CampusError
+    from campus_usc_core.campus import AuthenticationRequired, CampusError
 
     if not before["files"]:
         say("")
@@ -330,7 +330,7 @@ async def _hand_in(
     args: argparse.Namespace,
     ref: str = "",
 ) -> int:
-    from mcp_usc.campus import AuthenticationRequired, CampusError
+    from campus_usc_core.campus import AuthenticationRequired, CampusError
 
     json_mode = bool(args.json)
     say = (lambda text: sys.stderr.write(str(text) + "\n")) if json_mode else out

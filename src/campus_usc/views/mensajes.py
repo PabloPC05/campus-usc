@@ -124,7 +124,7 @@ def configure(parser: argparse.ArgumentParser) -> None:
 
 
 def _new_service() -> Any:
-    from mcp_usc.service import UscService  # heavy: only when really sending
+    from campus_usc_core.service import UscService  # heavy: only when really sending
 
     return UscService()
 
@@ -157,7 +157,7 @@ async def _recipient(service: Any, target: str) -> tuple[dict[str, Any] | None, 
 
 
 async def _write(args: argparse.Namespace) -> int:
-    from mcp_usc.campus import AuthenticationRequired, CampusError
+    from campus_usc_core.campus import AuthenticationRequired, CampusError
 
     text = " ".join(args.texto).strip()
     if not text:

@@ -564,7 +564,7 @@ def configure_materiales(parser: argparse.ArgumentParser) -> None:
 
 
 def _new_service() -> Any:
-    from mcp_usc.service import UscService  # heavy: only when really downloading
+    from campus_usc_core.service import UscService  # heavy: only when really downloading
 
     return UscService()
 
@@ -618,7 +618,7 @@ def _folder_link(folder: Any) -> str:
 
 
 async def _download(course: dict[str, Any], args: argparse.Namespace) -> int:
-    from mcp_usc.campus import AuthenticationRequired, CampusError
+    from campus_usc_core.campus import AuthenticationRequired, CampusError
 
     json_mode = bool(args.json)
     say = (lambda text: sys.stderr.write(text + "\n")) if json_mode else out

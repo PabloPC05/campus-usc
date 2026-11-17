@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 
 import websockets
-from mcp_usc import system_browser as browsers
+from campus_usc_core import system_browser as browsers
 
 START = "https://cv.usc.es/auth/oidc/?source=loginpage"
 

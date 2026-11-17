@@ -1,0 +1,518 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
+
+import pytest
+from campus_usc_core.campus import (
+    CampusCapabilityUnavailable,
+    CampusMutationOutcomeUnknown,
+    CampusProtocolError,
+)
+from campus_usc_core.confirmations import ACTION_CONFIRMATIONS
+from campus_usc_core.local_files import inspect_upload_files
+from campus_usc_core.service import UscService, _capture_confirmed_uploads
+from campus_usc_core.settings import Settings
+
+
+class FakeSessionForms:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, tuple[Any, ...]]] = []
+        self.unknown_save = False
+
+    async def inspect_assignment(self, course_module_id: int) -> dict[str, Any]:
+        self.calls.append(("inspect_assignment", (course_module_id,)))
+        return {
+            "forms": [{"action_path": "/mod/assign/view.php"}],
+            "save_supported": True,
+        }
+
+    async def assignment_status(self, course_module_id: int) -> dict[str, Any]:
+        self.calls.append(("assignment_status", (course_module_id,)))
+        return {"rows": {"Estado da entrega": "Borrador (non enviado)"}}
+
+    async def save_assignment(
+        self,
+        course_module_id: int,
+        values: Mapping[str, Any],
+        *,
+        confirmed: bool,
+    ) -> dict[str, Any]:
+        self.calls.append(("save_assignment", (course_module_id, dict(values), confirmed)))
+        if self.unknown_save:
+            raise CampusMutationOutcomeUnknown("unknown")
+        return {"request_sent": True, "outcome": "unknown"}
+
+    async def prepare_assignment_submit(self, course_module_id: int) -> dict[str, Any]:
+        self.calls.append(("prepare_assignment_submit", (course_module_id,)))
+        return {"supported": True}
+
+    async def submit_assignment(
+        self,
+        course_module_id: int,
+        values: Mapping[str, Any] | None,
+        *,
+        confirmed: bool,
+    ) -> dict[str, Any]:
+        self.calls.append(("submit_assignment", (course_module_id, dict(values or {}), confirmed)))
+        return {"request_sent": True, "outcome": "unknown"}
+
+    async def inspect_assignment_delete(self, course_module_id: int) -> dict[str, Any]:
+        self.calls.append(("inspect_assignment_delete", (course_module_id,)))
+        return {"delete_action_detected": True}
+
+    async def delete_assignment(self, course_module_id: int, *, confirmed: bool) -> dict[str, Any]:
+        self.calls.append(("delete_assignment", (course_module_id, confirmed)))
+        return {"request_sent": True, "outcome": "unknown"}
+
+    async def replace_assignment_files(
+        self, course_module_id: int, uploads: list[Any], *, confirmed: bool
+    ) -> dict[str, Any]:
+        self.calls.append(("replace_assignment_files", (course_module_id, uploads, confirmed)))
+        return {"request_sent": True, "outcome": "unknown"}
+
+    async def delete_assignment_files(
+        self, course_module_id: int, *, confirmed: bool
+    ) -> dict[str, Any]:
+        self.calls.append(("delete_assignment_files", (course_module_id, confirmed)))
+        return {"request_sent": True, "outcome": "unknown"}
+
+    async def inspect_quiz_start(self, course_module_id: int) -> dict[str, Any]:
+        self.calls.append(("inspect_quiz_start", (course_module_id,)))
+        return {"forms": [{"action_path": "/mod/quiz/startattempt.php"}]}
+
+    async def start_quiz(
+        self,
+        course_module_id: int,
+        values: Mapping[str, Any] | None,
+        *,
+        confirmed: bool,
+    ) -> dict[str, Any]:
+        self.calls.append(("start_quiz", (course_module_id, dict(values or {}), confirmed)))
+        return {"request_sent": True, "outcome": "unknown"}
+
+    async def finish_quiz(self, attempt_id: int, *, confirmed: bool) -> dict[str, Any]:
+        self.calls.append(("finish_quiz", (attempt_id, confirmed)))
+        return {"request_sent": True, "outcome": "unknown"}
+
+    async def inspect_quiz_finish(self, attempt_id: int) -> dict[str, Any]:
+        self.calls.append(("inspect_quiz_finish", (attempt_id,)))
+        return {"forms": [{"action_path": "/mod/quiz/processattempt.php"}]}
+
+
+class FakeSessionGateway:
+    def __init__(self) -> None:
+        self.forms = FakeSessionForms()
+        self.invoke_calls: list[str] = []
+        self.ambiguous = False
+        self.forms_enabled = True
+        self.course_state: dict[str, Any] = {
+            "section": [{"id": "70", "section": 1, "title": "Tema <b>1</b>", "visible": True}],
+            "cm": [
+                {
+                    "id": 17,
+                    "module": "assign",
+                    "modname": "assign",
+                    "name": "Tarea",
+                    "sectionid": "70",
+                    "sectionnumber": 1,
+                    "uservisible": True,
+                },
+                {
+                    "id": 18,
+                    "module": "quiz",
+                    "modname": "Proba",
+                    "name": "Quiz",
+                    "sectionid": "70",
+                    "sectionnumber": 1,
+                    "url": "https://cv.usc.es/mod/quiz/view.php?id=18",
+                },
+                {
+                    "id": 19,
+                    "module": "forum",
+                    "modname": "forum",
+                    "name": "Foro",
+                    "sectionid": "70",
+                    "sectionnumber": 1,
+                    "url": "https://cv.usc.es/mod/forum/view.php?id=19",
+                },
+                {
+                    "id": 20,
+                    "module": "resource",
+                    "modname": "resource",
+                    "name": "Guía",
+                    "sectionid": "70",
+                    "sectionnumber": 1,
+                    "url": "https://cv.usc.es/mod/resource/view.php?id=20",
+                },
+            ],
+        }
+
+    async def status(self) -> dict[str, Any]:
+        return {"authenticated": True, "user_id": 5}
+
+    async def invoke(self, function: str, arguments: Mapping[str, Any]) -> Any:
+        self.invoke_calls.append(function)
+        if function == "core_courseformat_get_state":
+            return self.course_state
+        if self.ambiguous:
+            raise CampusProtocolError(f"respuesta ambigua de {function}")
+        raise CampusCapabilityUnavailable(f"{function} no está disponible")
+
+    def session_forms(self) -> FakeSessionForms | None:
+        return self.forms if self.forms_enabled else None
+
+    async def list_courses(self, include_archived: bool = False) -> list[dict[str, Any]]:
+        return [{"id": 7, "fullname": "Curso"}]
+
+
+@pytest.fixture(autouse=True)
+def clear_confirmations() -> None:
+    ACTION_CONFIRMATIONS.clear()
+
+
+def _service_with(gateway: FakeSessionGateway) -> UscService:
+    service = object.__new__(UscService)
+    service.settings = None
+    service._campus = lambda: gateway
+    return service
+
+
+async def test_online_submission_preview_is_pure_and_issues_confirmation() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    preview = await service.preview_save_online_submission(None, "Texto", 17)
+
+    assert preview["allowed"] is True
+    assert preview["status"]["unchecked_until_execution"] is True
+    assert gateway.forms.calls == []
+    assert gateway.invoke_calls == []
+
+
+async def test_online_submission_effect_uses_confirmed_http_form() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+    preview = await service.preview_save_online_submission(None, "Texto", 17)
+
+    result = await service.save_online_submission(None, "Texto", preview["confirmation_token"], 17)
+
+    assert result["request_sent"] is True
+    assert gateway.forms.calls == [
+        ("save_assignment", (17, {"onlinetext_editor[text]": "Texto"}, True))
+    ]
+    assert gateway.invoke_calls == []
+
+
+async def test_session_assignment_rejects_transport_before_inspection() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    with pytest.raises(ValueError, match="assignment_id=null"):
+        await service.preview_save_online_submission(8, "Texto", 17)
+
+    assert gateway.forms.calls == []
+    assert gateway.invoke_calls == []
+
+
+async def test_session_quiz_preview_requires_course_module_id() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    with pytest.raises(ValueError, match="course_module_id"):
+        await service.preview_start_quiz(None, None, False)
+
+
+async def test_quiz_start_falls_back_to_http_form_with_exact_confirmation() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+    preview = await service.preview_start_quiz(None, {"quizpassword": "clave"}, False, 23)
+
+    assert gateway.forms.calls == []
+
+    result = await service.start_quiz(
+        None,
+        {"quizpassword": "clave"},
+        False,
+        preview["confirmation_token"],
+        23,
+    )
+
+    assert result["request_sent"] is True
+    assert gateway.forms.calls[-1] == (
+        "start_quiz",
+        (23, {"quizpassword": "clave"}, True),
+    )
+
+
+async def test_session_assignment_timeout_returns_unknown_without_fallback() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+    gateway.forms.unknown_save = True
+    preview = await service.preview_save_online_submission(None, "Texto", 17)
+
+    result = await service.save_online_submission(None, "Texto", preview["confirmation_token"], 17)
+
+    assert result["outcome"] == "unknown"
+    assert result["do_not_retry"] is True
+    assert len(gateway.forms.calls) == 1
+    assert gateway.invoke_calls == []
+
+
+async def test_session_quiz_rejects_internal_id_cmid_pair_before_inspection() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    with pytest.raises(ValueError, match="quiz_id=null"):
+        await service.preview_start_quiz(7, None, False, 99)
+
+    assert gateway.forms.calls == []
+
+
+async def test_session_quiz_start_rejects_force_new_at_preview() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    with pytest.raises(ValueError, match="force_new"):
+        await service.preview_start_quiz(None, None, True, 23)
+
+    assert gateway.forms.calls == []
+
+
+@pytest.mark.parametrize(
+    ("responses", "time_up", "preflight"),
+    [
+        ({"q1:1_answer": "2"}, False, None),
+        (None, True, None),
+        (None, False, {"quizpassword": "clave"}),
+    ],
+)
+async def test_quiz_finish_session_rejects_unsupported_request_at_preview(
+    responses: dict[str, Any] | None, time_up: bool, preflight: dict[str, Any] | None
+) -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+    issued_before = len(ACTION_CONFIRMATIONS._pending)
+
+    with pytest.raises(CampusProtocolError, match="No se finalizó"):
+        await service.preview_finish_quiz(41, responses, time_up, preflight)
+
+    assert len(ACTION_CONFIRMATIONS._pending) == issued_before
+    assert all(call[0] != "finish_quiz" for call in gateway.forms.calls)
+
+
+async def test_assignment_stateful_inspection_requires_fresh_confirmation() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    preview = await service.inspect_submission_status(17, None)
+
+    assert preview["stateful_read"] is True
+    assert gateway.forms.calls == []
+
+    result = await service.inspect_submission_status(17, preview["confirmation_token"])
+
+    assert result["stateful_inspection_confirmed"] is True
+    assert gateway.forms.calls == [("inspect_assignment", (17,)), ("assignment_status", (17,))]
+    assert result["submission_status"]["rows"]["Estado da entrega"] == "Borrador (non enviado)"
+
+
+async def test_session_list_assignments_uses_ajax_course_state_and_exposes_only_cmid() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    result = await service.list_assignments(None)
+
+    assert result["assignments"] == [
+        {
+            "id": None,
+            "assignment_id": None,
+            "cmid": 17,
+            "course_module_id": 17,
+            "name": "Tarea",
+            "course_id": 7,
+            "course_name": "Curso",
+            "visible": True,
+            "instance_id_available": False,
+            "transport": "moodle_ajax_course_state",
+            "content_is_untrusted": True,
+        }
+    ]
+    assert gateway.invoke_calls == ["core_courseformat_get_state"]
+    assert gateway.forms.calls == []
+
+
+async def test_session_lists_quizzes_from_ajax_state_without_opening_pages() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    result = await service.list_quizzes([7])
+
+    assert result["quizzes"][0]["quiz_id"] is None
+    assert result["quizzes"][0]["course_module_id"] == 18
+    assert result["quizzes"][0]["activity_url"].endswith("id=18")
+    assert result["quizzes"][0]["opening_may_record_view"] is True
+    assert gateway.invoke_calls == ["core_courseformat_get_state"]
+    assert gateway.forms.calls == []
+
+
+async def test_session_lists_course_contents_as_limited_metadata() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    result = await service.list_course_contents(7, 70, 0, 100)
+
+    assert result["metadata_only"] is True
+    assert result["total_count"] == 4
+    assert {item["module_type"] for item in result["items"]} == {
+        "assign",
+        "forum",
+        "quiz",
+        "resource",
+    }
+    assert all(item["files"] == [] for item in result["items"])
+    assert all(item["url"] is None for item in result["items"])
+    assert result["items"][0]["section_name"] == "Tema 1"
+    assert gateway.forms.calls == []
+
+
+async def test_session_resource_listing_never_issues_download_tokens_for_view_pages() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    result = await service.list_course_resources(7, None, 0, 100)
+
+    assert result["metadata_only"] is True
+    assert result["total_count"] == 1
+    assert result["items"][0]["module_type"] == "resource"
+    assert result["items"][0]["resource_token"] is None
+    assert result["items"][0]["downloadable"] is False
+    assert result["items"][0]["activity_url"].endswith("id=20")
+    assert gateway.forms.calls == []
+
+
+async def test_session_lists_forums_without_claiming_an_instance_id() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    result = await service.list_forums([7], 0, 100)
+
+    assert result["total_count"] == 1
+    assert result["items"][0]["forum_id"] is None
+    assert result["items"][0]["course_module_id"] == 19
+    assert result["items"][0]["can_create_discussions"] is None
+    assert result["items"][0]["capability_known"] is False
+    assert gateway.forms.calls == []
+
+
+async def test_session_course_state_rejects_unadvertised_courses_before_ajax() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    with pytest.raises(ValueError, match="no pertenece"):
+        await service.list_quizzes([999])
+
+    assert gateway.invoke_calls == []
+
+
+async def test_session_course_state_rejects_cross_module_activity_urls() -> None:
+    gateway = FakeSessionGateway()
+    gateway.course_state["cm"][1]["url"] = "https://cv.usc.es/mod/assign/view.php?id=18"
+    service = _service_with(gateway)
+
+    result = await service.list_quizzes([7])
+
+    assert result["quizzes"][0]["activity_url"] is None
+
+
+async def test_session_course_state_rejects_non_integer_course_ids() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    with pytest.raises(ValueError, match="entero positivo"):
+        await service.list_quizzes([7.5])  # type: ignore[list-item]
+
+    assert gateway.invoke_calls == []
+
+
+async def test_session_course_state_rejects_duplicate_course_modules() -> None:
+    gateway = FakeSessionGateway()
+    gateway.course_state["cm"].append(dict(gateway.course_state["cm"][0]))
+    service = _service_with(gateway)
+
+    with pytest.raises(CampusProtocolError, match="duplico un modulo"):
+        await service.list_quizzes([7])
+
+
+async def test_session_course_state_withholds_links_for_invisible_modules() -> None:
+    gateway = FakeSessionGateway()
+    gateway.course_state["cm"][1]["uservisible"] = False
+    service = _service_with(gateway)
+
+    result = await service.list_quizzes([7])
+
+    assert result["quizzes"][0]["visible"] is False
+    assert result["quizzes"][0]["activity_url"] is None
+
+
+async def test_submit_and_remove_previews_do_not_open_assignment_pages() -> None:
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+
+    submit = await service.preview_submit_assignment(None, True, 17)
+    remove = await service.preview_remove_submission(None, 17)
+
+    assert gateway.forms.calls == []
+    await service.submit_assignment(None, True, submit["confirmation_token"], 17)
+    await service.remove_submission(None, remove["confirmation_token"], 17)
+    assert gateway.forms.calls == [
+        ("submit_assignment", (17, {"submissionstatement": True}, True)),
+        ("delete_assignment", (17, True)),
+    ]
+
+
+def _upload_settings(root: Path) -> Settings:
+    return Settings(
+        moodle_url="https://cv.usc.es",
+        moodle_token=None,
+        browser_channel="chromium",
+        browser_profile_dir=root / "profile",
+        exam_sources=(),
+        upload_root=root,
+        max_upload_bytes=1024,
+    )
+
+
+async def test_session_file_replace_passes_exact_confirmed_bytes(tmp_path: Path) -> None:
+    source = tmp_path / "answer.txt"
+    source.write_bytes(b"confirmed")
+    gateway = FakeSessionGateway()
+    service = _service_with(gateway)
+    service.settings = _upload_settings(tmp_path)
+
+    preview = await service.preview_replace_submission_files(None, ["answer.txt"], 17)
+    result = await service.replace_submission_files(
+        None,
+        ["answer.txt"],
+        preview["confirmation_token"],
+        17,
+    )
+
+    assert result["request_sent"] is True
+    call = gateway.forms.calls[-1]
+    assert call[0] == "replace_assignment_files"
+    upload = call[1][1][0]
+    assert upload.filename == "answer.txt"
+    assert upload.content == b"confirmed"
+
+
+def test_capture_rejects_file_changed_after_confirmation(tmp_path: Path) -> None:
+    source = tmp_path / "answer.txt"
+    source.write_bytes(b"original")
+    settings = _upload_settings(tmp_path)
+    inspected = inspect_upload_files(settings, ["answer.txt"])
+    source.write_bytes(b"modified")
+
+    with pytest.raises(ValueError, match="cambio despues de la confirmacion"):
+        _capture_confirmed_uploads(inspected, settings.max_upload_bytes)

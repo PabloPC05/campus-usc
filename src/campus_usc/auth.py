@@ -63,8 +63,8 @@ def session_saved() -> bool:
     """Whether a Campus session is stored here (expired or not) or you never logged in."""
 
     try:
-        from mcp_usc.credentials import CredentialStore
-        from mcp_usc.session_auth import SESSION_CREDENTIAL_NAME
+        from campus_usc_core.credentials import CredentialStore
+        from campus_usc_core.session_auth import SESSION_CREDENTIAL_NAME
 
         return bool(CredentialStore().get(SESSION_CREDENTIAL_NAME))
     except Exception:  # noqa: BLE001 - only picks the wording of a message
@@ -99,13 +99,13 @@ def window_unavailable() -> str | None:
 def available() -> bool:
     """Whether a login window can be opened: your Chrome/Edge/Brave, or the bundled one."""
 
-    from mcp_usc.system_browser import find_browser
+    from campus_usc_core.system_browser import find_browser
 
     return find_browser() is not None or bundled_browser()
 
 
 def _settings() -> Any:
-    from mcp_usc.settings import Settings
+    from campus_usc_core.settings import Settings
 
     return Settings.from_env()
 
@@ -143,7 +143,7 @@ def silent(settings: Any | None = None) -> bool:
 
     import asyncio
 
-    from mcp_usc.campus import CampusError, renew_session_silently
+    from campus_usc_core.campus import CampusError, renew_session_silently
 
     try:
         renewed = asyncio.run(renew_session_silently(settings or _settings()))
@@ -158,7 +158,11 @@ def window(settings: Any | None = None, minutes: int = 15) -> None:
 
     import asyncio
 
-    from mcp_usc.campus import LoginBrowserUnavailable, install_login_browser, interactive_login
+    from campus_usc_core.campus import (
+        LoginBrowserUnavailable,
+        install_login_browser,
+        interactive_login,
+    )
 
     settings = settings or _settings()
     try:
@@ -178,7 +182,7 @@ def ensure(*, interactive: bool, minutes: int = 15) -> bool:
 
     if not available():
         return False
-    from mcp_usc.campus import CampusError
+    from campus_usc_core.campus import CampusError
 
     from .sources import Spinner
 
