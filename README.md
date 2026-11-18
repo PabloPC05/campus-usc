@@ -5,6 +5,12 @@ marino, el Taboleiro, el Cronograma y «Os meus cursos», con los colores del te
 Cada asignatura sale en el color que Moodle da a su tarjeta y las etiquetas están en gallego,
 como en la web. Cada pantalla tarda unos 30 ms.
 
+> **Proyecto no oficial.** Lo hace y lo mantiene un estudiante: la USC no lo respalda ni tiene nada
+> que ver con él. Por dentro hace lo mismo que harías tú en el navegador del Campus —entra con tu
+> cuenta de la USC, lee tus páginas y ya— y nunca guarda tu contraseña. Si la USC cambia su web,
+> algo puede dejar de funcionar hasta que se arregle. Es código abierto: puedes leer aquí todo lo
+> que hace.
+
 ```sh
 campus                    # el Taboleiro: hoy, el calendario, lo pendiente y tus cursos
 campus entrar             # entra en el Campus (la primera vez lo hace solo)
@@ -134,7 +140,7 @@ Medido el 17 de noviembre de 2026 con una cuenta real, en un Mac con Apple M5 y 
   (mediana de 7 veces). Es lo normal: lo viejo se renueva en segundo plano.
 - **`campus` pidiendo al Campus** (`-f`): sin caché, con un proceso nuevo que arranca el motor y
   abre la sesión.
-- **Asistente con MCP**: lo que tarda la herramienta de [mcp-usc](https://github.com/PabloPC05/mcp-usc)
+- **Asistente con MCP**: lo que tarda la herramienta de [mcp-usc](https://github.com/PabloPC05/campus-usc/tree/main/mcp)
   con el servidor ya arrancado (arrancarlo, 0,3 s). A eso el asistente suma su propio tiempo: decidir
   qué herramienta usar, leer la respuesta (la columna de caracteres: entre 2 000 y 9 000 tokens) y
   escribirte el resumen. Ese tiempo depende del modelo y no está medido aquí.
@@ -157,10 +163,11 @@ Por qué `campus` es tan rápido:
 - **Una sola sesión.** Si falta algo, todas las consultas de la pantalla salen a la vez sobre una
   única sesión del Campus.
 
-La caché vive en la carpeta de cachés de mcp-usc (`~/Library/Caches/mcp-usc/campus` en macOS;
-`USC_CACHE_DIR` la cambia) y `campus limpiar` la vacía junto con las del motor. El motor,
-[mcp-usc](https://github.com/PabloPC05/mcp-usc), se instala solo y comparte la sesión: si ya
-entraste con `mcp-usc login`, `campus` no te pide nada. El comando también se llama `campus-usc`,
+La caché vive en la carpeta de cachés `mcp-usc` (`~/Library/Caches/mcp-usc/campus` en macOS;
+`USC_CACHE_DIR` la cambia; se llama así desde antes de la mudanza, para no perder las sesiones ya
+iniciadas) y `campus limpiar` la vacía junto con las del motor. El motor (`campus-usc-core`) se
+instala solo con `campus`, y la sesión se comparte con el servidor MCP (`mcp-usc`): si ya entraste
+con `mcp-usc login`, `campus` no te pide nada, y al revés. El comando también se llama `campus-usc`,
 por si `campus` choca con otro.
 
 ## Entregar
